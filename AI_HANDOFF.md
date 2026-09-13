@@ -4,7 +4,7 @@ Dokumen ini dipakai sebagai konteks cepat untuk AI lain atau sesi lanjutan agar 
 
 ## Ringkasan Project
 
-- Nama app: `Tara Plastic POS`
+- Nama app: `ZeePOS`
 - Stack frontend: React 18, TypeScript, Vite, Tailwind CSS, Zustand, React Router
 - Backend: Supabase Cloud
 - Storage: Supabase Storage bucket `products`
@@ -62,10 +62,10 @@ Dokumen ini dipakai sebagai konteks cepat untuk AI lain atau sesi lanjutan agar 
 Akun default sudah dibuat langsung di Supabase Cloud:
 
 - Admin:
-  - email: `admin@ratih.com`
+  - email: `admin@zeepos.com`
   - password: `Admin@123`
 - Kasir:
-  - email: `kasir1@ratih.com`
+  - email: `kasir1@zeepos.com`
   - password: `Kasir@123`
 
 `profiles` untuk keduanya juga sudah dibuat dan aktif:
@@ -172,7 +172,7 @@ bash scripts/reset-uat-cloud.sh
 
 Script ini akan:
 
-- mempertahankan user default `admin@ratih.com` dan `kasir1@ratih.com`
+- mempertahankan user default `admin@zeepos.com` dan `kasir1@zeepos.com`
 - menghapus user uji tambahan
 - menghapus transaksi, item transaksi, stok adjustment
 - menghapus produk dan kategori

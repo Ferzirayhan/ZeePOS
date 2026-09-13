@@ -1,6 +1,6 @@
-# Tara Plastic POS
+# ZeePOS
 
-Aplikasi Point of Sale untuk Tara Plastic berbasis React, TypeScript, Tailwind CSS, dan Supabase.
+Aplikasi Point of Sale SaaS Universal berbasis React, TypeScript, Tailwind CSS, dan Supabase.
 
 ## Stack
 
@@ -112,28 +112,22 @@ Buka:
 - Frontend: [http://localhost:5173](http://localhost:5173)
 - Supabase Studio: [http://localhost:54323](http://localhost:54323)
 
-## Default Credentials
+## Onboarding & Multi-Tenant SaaS
 
-Gunakan akun berikut setelah user dibuat di Supabase Auth:
+ZeePOS adalah platform POS multi-tenant. Setiap toko memiliki data (produk, stok, transaksi, kasir, laporan) yang terisolasi 100% menggunakan PostgreSQL Row Level Security (RLS).
 
-- Admin: `admin@ratih.com` / `Admin@123`
-- Kasir: `kasir1@ratih.com` / `Kasir@123`
+### Cara Mendaftar Toko Baru
+1. Buka aplikasi di `/register`.
+2. Masukkan email, password, nama toko, dan username pemilik.
+3. Akun Admin dan Toko otomatis dibuat secara atomik dan langsung aktif.
 
-## Cara Membuat User Admin / Kasir
-
-1. Buka Supabase Studio di [http://localhost:54323](http://localhost:54323)
-2. Masuk ke `Authentication > Users`
-3. Klik `Add user`
-4. Buat akun email/password
-5. Salin UUID user tersebut
-6. Masuk ke `Table Editor > profiles`
-7. Tambahkan row baru:
-
-```sql
-INSERT INTO profiles (id, nama, username, role, is_active)
-VALUES
-('UUID_USER', 'Nama Pengguna', 'username', 'kasir', true);
-```
+### Cara Menambah Akun Kasir / Staf
+1. Login sebagai Admin toko.
+2. Buka menu **Pengaturan > Pengguna**.
+3. Klik tombol **+ Tambah Kasir / Staf**.
+4. Masukkan nama, email, username, password, dan pilih role (`kasir` atau `admin`).
+5. Akun kasir langsung aktif dan dapat langsung digunakan login tanpa membuka database manual.
+6. Admin juga dapat mereset password atau menonaktifkan kasir kapan saja.
 
 ## Storage Bucket Produk
 
@@ -185,4 +179,4 @@ bash scripts/reset-uat-cloud.sh YOUR_DB_PASSWORD
 - Function laporan `get_sales_by_date` ada di migration `002_reports_functions.sql`, jadi setelah update migration jalankan lagi `supabase db reset`.
 - Untuk operasi admin Auth seperti `createUser` atau `updateUserById`, aplikasi client ini sengaja tidak memakai `service_role` demi keamanan. Gunakan Supabase Studio untuk pembuatan user baru.
 - Untuk go-live di cloud, lihat checklist di `DEPLOY_CHECKLIST.md`.
-- Untuk mengosongkan data testing di Supabase Cloud tanpa setup ulang project, jalankan `bash scripts/reset-uat-cloud.sh YOUR_DB_PASSWORD`. Script ini mempertahankan akun default `admin@ratih.com` dan `kasir1@ratih.com`, menghapus data operasional, mengembalikan `store_settings` ke seed awal, dan membersihkan foto produk di bucket `products`.
+- Untuk mengosongkan data testing di Supabase Cloud tanpa setup ulang project, jalankan `bash scripts/reset-uat-cloud.sh YOUR_DB_PASSWORD`. Script ini mempertahankan akun default `admin@zeepos.com` dan `kasir1@zeepos.com`, menghapus data operasional, mengembalikan `store_settings` ke seed awal, dan membersihkan foto produk di bucket `products`.

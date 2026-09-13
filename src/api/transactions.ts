@@ -25,6 +25,9 @@ export interface TransactionCartItem {
   qty: number
   subtotal: number
   diskonItemPersen?: number
+  satuan?: string
+  rasio?: number
+  unitId?: number
 }
 
 export interface CreateTransactionInput {
@@ -39,6 +42,7 @@ export interface CreateTransactionInput {
   uangDiterima?: number | null
   kembalian?: number | null
   catatan?: string | null
+  customerId?: number | null
 }
 
 export interface TransactionDetail {
@@ -190,6 +194,9 @@ export async function createTransaction(
         qty: item.qty,
         subtotal: item.subtotal,
         diskon_item_persen: item.diskonItemPersen ?? 0,
+        satuan: item.satuan ?? 'pcs',
+        rasio: item.rasio ?? 1,
+        unit_id: item.unitId ?? null,
       })),
     ),
     p_kasir_id: kasirId,
@@ -203,6 +210,7 @@ export async function createTransaction(
     p_uang_diterima: payload.uangDiterima ?? null,
     p_kembalian: payload.kembalian ?? null,
     p_catatan: payload.catatan ?? null,
+    p_customer_id: payload.customerId ?? null,
   })
 
   if (error) {

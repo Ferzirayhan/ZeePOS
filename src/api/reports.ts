@@ -7,6 +7,7 @@ import {
   startOfDay,
   subDays,
 } from 'date-fns'
+import { getISOEndOfDay, getISOStartOfDay, formatLocalDateKey } from '../utils/date'
 import { supabase } from '../lib/supabase'
 import type {
   DashboardChangeSummary,
@@ -188,13 +189,16 @@ export async function getSalesReport(
 ): Promise<SalesReport[]> {
   void groupBy
 
+  const fromIso = getISOStartOfDay(dateFrom)
+  const toIso = getISOEndOfDay(dateTo)
+
   const { data, error } = await supabase
     .from('transactions')
     .select('*')
     .eq('status', 'selesai')
     .eq('payment_status', 'dibayar')
-    .gte('created_at', dateFrom)
-    .lte('created_at', dateTo)
+    .gte('created_at', fromIso)
+    .lte('created_at', toIso)
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -204,7 +208,9 @@ export async function getSalesReport(
   const reportMap = new Map<string, SalesReport>()
 
   for (const transaction of data ?? []) {
-    const key = (transaction.created_at ?? '').slice(0, 10)
+    const key = formatLocalDateKey(transaction.created_at)
+
+    if (!key) continue
 
     if (!reportMap.has(key)) {
       reportMap.set(key, {
@@ -232,8 +238,8 @@ export async function getTopProducts(
   limit = 10,
 ): Promise<TopProduct[]> {
   const { data, error } = await supabase.rpc('get_top_products', {
-    p_date_from: dateFrom,
-    p_date_to: dateTo,
+    p_date_from: getISOStartOfDay(dateFrom),
+    p_date_to: getISOEndOfDay(dateTo),
     p_limit: limit,
   })
 
@@ -366,8 +372,8 @@ export async function getSalesByDateRange(
   dateTo: string,
 ): Promise<SalesReport[]> {
   const { data, error } = await supabase.rpc('get_sales_by_date', {
-    date_from: dateFrom,
-    date_to: dateTo,
+    date_from: getISOStartOfDay(dateFrom),
+    date_to: getISOEndOfDay(dateTo),
   })
 
   if (error) {
@@ -410,9 +416,12 @@ export async function getReportSummary(
   dateFrom: string,
   dateTo: string,
 ): Promise<ReportSummary> {
+  const fromIso = getISOStartOfDay(dateFrom)
+  const toIso = getISOEndOfDay(dateTo)
+
   const [sales, topProducts, profitData] = await Promise.all([
-    getSalesReport(`${dateFrom}T00:00:00`, `${dateTo}T23:59:59`),
-    getTopProducts(`${dateFrom}T00:00:00`, `${dateTo}T23:59:59`, 1),
+    getSalesReport(fromIso, toIso),
+    getTopProducts(fromIso, toIso, 1),
     getProfitSummary(dateFrom, dateTo),
   ])
 
@@ -421,8 +430,8 @@ export async function getReportSummary(
     .select('*', { count: 'exact', head: true })
     .eq('status', 'selesai')
     .eq('payment_status', 'menunggu_konfirmasi')
-    .gte('created_at', `${dateFrom}T00:00:00`)
-    .lte('created_at', `${dateTo}T23:59:59`)
+    .gte('created_at', fromIso)
+    .lte('created_at', toIso)
 
   if (pendingError) {
     throw new Error(pendingError.message)
@@ -461,11 +470,11 @@ export async function getTransactionHistoryPage(
     .range(from, to)
 
   if (filters.dateFrom) {
-    query = query.gte('created_at', `${filters.dateFrom}T00:00:00`)
+    query = query.gte('created_at', getISOStartOfDay(filters.dateFrom))
   }
 
   if (filters.dateTo) {
-    query = query.lte('created_at', `${filters.dateTo}T23:59:59`)
+    query = query.lte('created_at', getISOEndOfDay(filters.dateTo))
   }
 
   if (filters.metodeBayar && filters.metodeBayar !== 'all') {
@@ -499,8 +508,8 @@ export async function getProfitSummary(
   dateTo: string,
 ): Promise<ProfitSummaryItem[]> {
   const { data, error } = await supabase.rpc('get_profit_summary', {
-    p_date_from: `${dateFrom}T00:00:00+07:00`,
-    p_date_to: `${dateTo}T23:59:59+07:00`,
+    p_date_from: getISOStartOfDay(dateFrom),
+    p_date_to: getISOEndOfDay(dateTo),
   })
 
   if (error) {

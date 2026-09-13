@@ -21,11 +21,12 @@ import { useUIStore } from '../stores/uiStore'
 import type { Transaction, TransactionItem, TransactionWithKasir } from '../types/database'
 import { cn } from '../utils/cn'
 import { formatRupiah } from '../utils/currency'
+import { exportToExcel } from '../utils/export'
 
 type QuickRange = 'today' | '7days' | '30days' | 'custom'
 
-const chartColors = ['#0a7c72', '#8fdad2', '#cdece7']
-const pieColors = ['#0a7c72', '#a86b00', '#b45f36', '#d9dadc']
+const chartColors = ['#2563eb', '#60a5fa', '#bfdbfe']
+const pieColors = ['#2563eb', '#f59e0b', '#10b981', '#94a3b8']
 
 function formatDateInput(date: Date) {
   return format(date, 'yyyy-MM-dd')
@@ -199,7 +200,6 @@ export function ReportsPage() {
 
   const exportExcel = async () => {
     try {
-      const XLSX = await import('xlsx')
       const allTransactions = await getTransactionHistoryPage({
         page: 1,
         pageSize: Math.min(totalCount, 5000),
@@ -210,7 +210,6 @@ export function ReportsPage() {
         search: debouncedSearch || undefined,
       })
 
-      const workbook = XLSX.utils.book_new()
       const rows = allTransactions.data.map((item) => ({
         'No. Nota': item.nomor_nota ?? '-',
         Kasir: item.kasir_nama ?? '-',
@@ -222,9 +221,7 @@ export function ReportsPage() {
         'Jumlah Item': item.jumlah_item ?? 0,
       }))
 
-      const worksheet = XLSX.utils.json_to_sheet(rows)
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Laporan Penjualan')
-      XLSX.writeFile(workbook, `laporan-penjualan-${dateFrom}-${dateTo}.xlsx`)
+      exportToExcel(rows, `laporan-penjualan-${dateFrom}-${dateTo}.xlsx`, 'Laporan Penjualan')
 
       pushToast({
         title: 'Export berhasil',
@@ -294,7 +291,7 @@ export function ReportsPage() {
           <button
             type="button"
             onClick={() => void exportExcel()}
-            className="rounded-[14px] bg-[#0a7c72] px-5 py-3 font-bold text-white shadow-[0_12px_24px_rgba(10,124,114,0.22)]"
+            className="rounded-[14px] bg-[#2563eb] px-5 py-3 font-bold text-white shadow-[0_12px_24px_rgba(37,99,235,0.22)]"
           >
             Export Excel
           </button>
@@ -315,7 +312,7 @@ export function ReportsPage() {
                     setDateFrom(event.target.value)
                     setPage(1)
                   }}
-                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#cde9e4] focus:ring-2 focus:ring-[#0a7c72]/10"
+                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#bfdbfe] focus:ring-2 focus:ring-[#2563eb]/10"
                 />
               </div>
               <div className="min-w-0">
@@ -330,7 +327,7 @@ export function ReportsPage() {
                     setDateTo(event.target.value)
                     setPage(1)
                   }}
-                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#cde9e4] focus:ring-2 focus:ring-[#0a7c72]/10"
+                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#bfdbfe] focus:ring-2 focus:ring-[#2563eb]/10"
                 />
               </div>
 
@@ -344,7 +341,7 @@ export function ReportsPage() {
                     setMetodeBayar(event.target.value as typeof metodeBayar)
                     setPage(1)
                   }}
-                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#cde9e4] focus:ring-2 focus:ring-[#0a7c72]/10"
+                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#bfdbfe] focus:ring-2 focus:ring-[#2563eb]/10"
                 >
                   <option value="all">Semua Metode</option>
                   <option value="tunai">Tunai</option>
@@ -363,7 +360,7 @@ export function ReportsPage() {
                     setPaymentStatus(event.target.value as typeof paymentStatus)
                     setPage(1)
                   }}
-                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#cde9e4] focus:ring-2 focus:ring-[#0a7c72]/10"
+                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#bfdbfe] focus:ring-2 focus:ring-[#2563eb]/10"
                 >
                   <option value="all">Semua Status</option>
                   <option value="dibayar">Dibayar</option>
@@ -381,7 +378,7 @@ export function ReportsPage() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Cari nota atau nama kasir..."
-                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-medium text-[#1b1e20] outline-none focus:border-[#cde9e4] focus:ring-2 focus:ring-[#0a7c72]/10"
+                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-medium text-[#1b1e20] outline-none focus:border-[#bfdbfe] focus:ring-2 focus:ring-[#2563eb]/10"
                 />
               </div>
             </div>
@@ -398,7 +395,7 @@ export function ReportsPage() {
                   type="button"
                   onClick={() => applyQuickRange(value as QuickRange)}
                   className={quickRange === value
-                    ? 'rounded-[14px] bg-[#0a7c72] px-4 py-2.5 text-sm font-bold text-white shadow-[0_10px_22px_rgba(10,124,114,0.18)]'
+                    ? 'rounded-[14px] bg-[#2563eb] px-4 py-2.5 text-sm font-bold text-white shadow-[0_10px_22px_rgba(37,99,235,0.18)]'
                     : 'rounded-[14px] bg-[#eef3f3] px-4 py-2.5 text-sm font-bold text-[#52627d]'}
                 >
                   {label}
@@ -532,7 +529,7 @@ export function ReportsPage() {
                       labelFormatter={(value) =>
                         format(new Date(String(value)), 'EEEE, dd MMMM yyyy', { locale: localeId })}
                     />
-                    <Bar dataKey="totalOmzet" name="totalOmzet" fill="#dff2ef" radius={[10, 10, 0, 0]} />
+                    <Bar dataKey="totalOmzet" name="totalOmzet" fill="#dbeafe" radius={[10, 10, 0, 0]} />
                     <Bar dataKey="totalLaba" name="totalLaba" fill="#a86b00" radius={[10, 10, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -568,7 +565,7 @@ export function ReportsPage() {
                       ))
                     : transactions.map((transaction) => (
                         <tr key={transaction.id} className="border-t border-[#eef1f1]">
-                          <td className="px-5 py-4 font-bold text-[#0a7c72]">{transaction.nomor_nota ?? '-'}</td>
+                          <td className="px-5 py-4 font-bold text-[#2563eb]">{transaction.nomor_nota ?? '-'}</td>
                           <td className="px-5 py-4 text-sm text-[#52627d]">{transaction.kasir_nama ?? '-'}</td>
                           <td className="px-5 py-4 text-sm font-bold text-[#1b1e20]">
                             {formatRupiah(Number(transaction.total ?? 0))}
@@ -579,7 +576,7 @@ export function ReportsPage() {
                           <td className="px-5 py-4 text-sm capitalize text-[#52627d]">{transaction.metode_bayar ?? '-'}</td>
                           <td className="px-5 py-4">
                             <span className={transaction.status === 'selesai'
-                              ? 'rounded-full bg-[#ccfaf1] px-3 py-1 text-[10px] font-extrabold uppercase text-[#0a7c72]'
+                              ? 'rounded-full bg-[#dcfce7] px-3 py-1 text-[10px] font-extrabold uppercase text-[#16a34a]'
                               : 'rounded-full bg-[#ffdad6] px-3 py-1 text-[10px] font-extrabold uppercase text-[#ba1a1a]'}>
                               {transaction.status ?? '-'}
                             </span>
@@ -593,7 +590,7 @@ export function ReportsPage() {
                             <button
                               type="button"
                               onClick={() => void openTransactionDetail(transaction)}
-                              className="rounded-[12px] px-3 py-2 text-sm font-bold text-[#0a7c72] hover:bg-[#e7f8f6]"
+                              className="rounded-[12px] px-3 py-2 text-sm font-bold text-[#2563eb] hover:bg-[#eff6ff]"
                             >
                               Detail
                             </button>
@@ -610,11 +607,11 @@ export function ReportsPage() {
                   <article key={transaction.id} className="rounded-[18px] border border-[#eef1f1] bg-[#fbfdfd] p-4 shadow-[0_6px_18px_rgba(15,23,42,0.04)]">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-extrabold text-[#0a7c72]">{transaction.nomor_nota ?? '-'}</p>
+                        <p className="font-extrabold text-[#2563eb]">{transaction.nomor_nota ?? '-'}</p>
                         <p className="mt-1 text-xs text-[#8b9895]">{transaction.kasir_nama ?? '-'}</p>
                       </div>
                       <span className={transaction.payment_status === 'dibayar'
-                        ? 'rounded-full bg-[#ccfaf1] px-3 py-1 text-[10px] font-extrabold uppercase text-[#0a7c72]'
+                        ? 'rounded-full bg-[#dcfce7] px-3 py-1 text-[10px] font-extrabold uppercase text-[#16a34a]'
                         : transaction.payment_status === 'menunggu_konfirmasi'
                           ? 'rounded-full bg-[#fff5e8] px-3 py-1 text-[10px] font-extrabold uppercase text-[#855300]'
                           : 'rounded-full bg-[#ffdad6] px-3 py-1 text-[10px] font-extrabold uppercase text-[#ba1a1a]'}>
@@ -644,7 +641,7 @@ export function ReportsPage() {
                     <button
                       type="button"
                       onClick={() => void openTransactionDetail(transaction)}
-                      className="mt-4 w-full rounded-[12px] bg-[#e7f8f6] px-3 py-2 text-sm font-bold text-[#0a7c72]"
+                      className="mt-4 w-full rounded-[12px] bg-[#eff6ff] px-3 py-2 text-sm font-bold text-[#2563eb]"
                     >
                       Lihat Detail
                     </button>
@@ -666,7 +663,7 @@ export function ReportsPage() {
                 >
                   Sebelumnya
                 </button>
-                <span className="rounded-[12px] bg-[#0a7c72] px-3 py-2 text-sm font-bold text-white">{page}</span>
+                <span className="rounded-[12px] bg-[#2563eb] px-3 py-2 text-sm font-bold text-white">{page}</span>
                 <button
                   type="button"
                   disabled={page >= totalPages}
@@ -699,7 +696,7 @@ export function ReportsPage() {
           <div className="flex justify-between">
             <span className="text-[#8b9895]">Status Pembayaran</span>
             <span className={selectedTransaction?.payment_status === 'dibayar'
-              ? 'rounded-full bg-[#ccfaf1] px-3 py-1 text-[10px] font-extrabold uppercase text-[#0a7c72]'
+              ? 'rounded-full bg-[#dcfce7] px-3 py-1 text-[10px] font-extrabold uppercase text-[#16a34a]'
               : selectedTransaction?.payment_status === 'menunggu_konfirmasi'
                 ? 'rounded-full bg-[#fff5e8] px-3 py-1 text-[10px] font-extrabold uppercase text-[#855300]'
                 : 'rounded-full bg-[#ffdad6] px-3 py-1 text-[10px] font-extrabold uppercase text-[#ba1a1a]'}>
@@ -712,7 +709,7 @@ export function ReportsPage() {
           </div>
           <div className="flex justify-between">
             <span className="text-[#8b9895]">Total</span>
-            <span className="font-bold text-[#0a7c72]">{formatRupiah(Number(selectedTransaction?.total ?? 0))}</span>
+            <span className="font-bold text-[#2563eb]">{formatRupiah(Number(selectedTransaction?.total ?? 0))}</span>
           </div>
           <div className="rounded-[16px] bg-[#f8fbfb] p-4">
             <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]">
@@ -741,7 +738,7 @@ export function ReportsPage() {
             <button
               type="button"
               onClick={() => void handlePrint()}
-              className="w-full rounded-[14px] bg-[#0a7c72] px-4 py-3 font-bold text-white"
+              className="w-full rounded-[14px] bg-[#2563eb] px-4 py-3 font-bold text-white"
             >
               Cetak Ulang Struk
             </button>

@@ -52,7 +52,7 @@ export class AppErrorBoundary extends Component<
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-6 rounded-[14px] bg-[#0a7c72] px-5 py-3 font-bold text-white"
+              className="mt-6 rounded-[14px] bg-[#2563eb] px-5 py-3 font-bold text-white"
             >
               Refresh Halaman
             </button>

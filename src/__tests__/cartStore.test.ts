@@ -119,7 +119,7 @@ describe('cartStore', () => {
 
       const { ppn_amount, total } = useCartStore.getState()
       expect(ppn_amount).toBe(9900)
-      expect(total).toBe(100000) // 99900 dibulatkan ke Rp500 terdekat
+      expect(total).toBe(99900)
     })
 
     it('hitung kembalian dengan benar', () => {

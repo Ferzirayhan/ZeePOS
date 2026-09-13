@@ -76,7 +76,7 @@ bash scripts/reset-uat-cloud.sh YOUR_DB_PASSWORD
 
 Reset ini akan:
 
-- mempertahankan akun default `admin@ratih.com` dan `kasir1@ratih.com`
+- mempertahankan akun default `admin@zeepos.com` dan `kasir1@zeepos.com`
 - menghapus transaksi, stok adjustment, produk, kategori, dan user uji tambahan
 - mengembalikan `store_settings` ke seed awal
 - membersihkan file di bucket `products`

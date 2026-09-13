@@ -19,19 +19,19 @@ export function BrandMark({ size = 'md', inverted = false, className, text }: Br
   return (
     <div
       className={cn(
-        'relative inline-flex shrink-0 items-center justify-center overflow-hidden font-black tracking-[-0.06em] shadow-[0_10px_24px_rgba(10,124,114,0.16)]',
+        'relative inline-flex shrink-0 items-center justify-center overflow-hidden font-extrabold tracking-[-0.04em] shadow-sm select-none',
         sizeClasses[size],
         inverted
-          ? 'bg-white/14 text-white ring-1 ring-white/20'
-          : 'bg-[linear-gradient(145deg,#0a7c72_0%,#0b8f83_100%)] text-white',
+          ? 'bg-white/15 text-white ring-1 ring-white/20'
+          : 'bg-[#2563eb] text-white shadow-blue-500/20',
         className,
       )}
       aria-hidden="true"
     >
-      <span className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.26),transparent_48%)]" />
+      <span className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.25),transparent_50%)]" />
       <span className="absolute inset-x-0 top-0 h-px bg-white/30" />
-      <span className="relative flex items-center justify-center">
-        <span>{display}</span>
+      <span className="relative flex items-center justify-center font-black">
+        {display}
       </span>
     </div>
   )

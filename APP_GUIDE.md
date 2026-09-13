@@ -236,12 +236,12 @@ npm run dev
 
 Lalu:
 
-1. buka Supabase Studio di `http://localhost:54323`
-2. pastikan user admin dan kasir ada
-3. login ke app
+1. buka app di browser (`http://localhost:5173`)
+2. buat akun dan registrasi toko pertama lewat `/register`
+3. buka Pengaturan > Kelola Pengguna untuk menambah akun kasir jika diperlukan
 4. buat kategori
 5. buat produk
-6. test transaksi
+6. test transaksi kasir
 
 ## 9. File Penting untuk Operasional
 

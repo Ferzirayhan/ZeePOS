@@ -8,6 +8,19 @@ export default {
   theme: {
     extend: {
       colors: {
+        brand: {
+          50: '#eff6ff',
+          100: '#dbeafe',
+          200: '#bfdbfe',
+          300: '#93c5fd',
+          400: '#60a5fa',
+          500: '#3b82f6',
+          600: '#2563eb',
+          700: '#1d4ed8',
+          800: '#1e40af',
+          900: '#1e3a8a',
+          950: '#172554',
+        },
         background: 'var(--color-background)',
         error: 'var(--color-error)',
         'error-container': 'var(--color-error-container)',
@@ -58,7 +71,8 @@ export default {
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'sans-serif'],
-        headline: ['var(--font-sans)', 'sans-serif'],
+        headline: ['var(--font-headline)', 'var(--font-sans)', 'sans-serif'],
+        display: ['var(--font-headline)', 'var(--font-sans)', 'sans-serif'],
         body: ['var(--font-sans)', 'sans-serif'],
         label: ['var(--font-sans)', 'sans-serif'],
         icon: ['var(--font-icon)', 'sans-serif'],

@@ -7,10 +7,12 @@ import { AppLayout } from './components/layout/AppLayout'
 import { DashboardPage } from './pages/DashboardPage'
 import { AuditPage } from './pages/AuditPage'
 import { GuidePage } from './pages/GuidePage'
+import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { POSPage } from './pages/POSPage'
 import { ProductsPage } from './pages/ProductsPage'
+import { CustomersPage } from './pages/CustomersPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -22,9 +24,9 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route
               element={
                 <PrivateRoute>
@@ -34,6 +36,7 @@ function App() {
             >
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/pos" element={<POSPage />} />
+              <Route path="/pelanggan" element={<CustomersPage />} />
               <Route path="/panduan" element={<GuidePage />} />
               <Route
                 path="/produk"

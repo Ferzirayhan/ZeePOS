@@ -7,35 +7,36 @@ interface CartItemProps {
   onIncrease: () => void
   onRemove: () => void
   onSetQty: (qty: number) => void
+  onOpenNumpad?: () => void
 }
 
-export function CartItem({ item, onDecrease, onIncrease, onRemove, onSetQty }: CartItemProps) {
+export function CartItem({ item, onDecrease, onIncrease, onRemove, onSetQty, onOpenNumpad }: CartItemProps) {
   return (
-    <div className="flex gap-3 rounded-[20px] border border-white/70 bg-white p-3.5 shadow-[0_6px_18px_rgba(15,23,42,0.04)]">
+    <div className="flex gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm transition-all hover:border-slate-300">
       {item.foto_url ? (
         <img
           src={item.foto_url}
           alt={item.nama_produk}
-          className="h-16 w-16 rounded-[16px] object-cover"
+          className="h-14 w-14 rounded-xl object-cover"
         />
       ) : (
-        <div className="flex h-16 w-16 items-center justify-center rounded-[16px] bg-[#e7f8f6] text-[#0a7c72]">
-          <span className="material-symbols-outlined">shopping_bag</span>
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+          <span className="material-symbols-outlined text-[24px]">shopping_bag</span>
         </div>
       )}
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="line-clamp-2 text-[15px] font-extrabold tracking-[-0.02em] text-[#1b1e20]">
+            <p className="line-clamp-1 text-xs sm:text-sm font-extrabold text-slate-900">
               {item.nama_produk}
             </p>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <p className="text-xs font-medium text-[#8b9895]">
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              <p className="text-xs font-bold text-slate-500">
                 {formatRupiah(item.harga_satuan)}
               </p>
               {item.diskon_item_persen > 0 && (
-                <span className="rounded-full bg-[#e6f9f7] px-2 py-0.5 text-[10px] font-extrabold text-[#0a7c72]">
+                <span className="rounded-full bg-blue-50 border border-blue-100 px-2 py-0.5 text-[9px] font-black text-blue-600">
                   Diskon {item.diskon_item_persen}%
                 </span>
               )}
@@ -44,20 +45,21 @@ export function CartItem({ item, onDecrease, onIncrease, onRemove, onSetQty }: C
           <button
             type="button"
             onClick={onRemove}
-            className="rounded-full p-1 text-[#a0aaa7] transition-colors hover:bg-[#fff1ed] hover:text-[#d63f2f]"
+            aria-label="Hapus item"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
           >
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            <span className="material-symbols-outlined text-[16px]">close</span>
           </button>
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <div className="flex items-center rounded-[16px] bg-[#f4f6f7] p-1">
+        <div className="mt-2.5 flex items-center justify-between gap-2">
+          <div className="flex items-center rounded-xl bg-slate-100/90 p-0.5 border border-slate-200/60">
             <button
               type="button"
               onClick={onDecrease}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] text-[#0a7c72] transition-colors hover:bg-white"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-xs transition-all hover:bg-blue-600 hover:text-white active:scale-95"
             >
-              <span className="material-symbols-outlined text-[18px]">remove</span>
+              <span className="material-symbols-outlined text-[16px]">remove</span>
             </button>
             <input
               type="number"
@@ -70,30 +72,40 @@ export function CartItem({ item, onDecrease, onIncrease, onRemove, onSetQty }: C
                   onSetQty(val)
                 }
               }}
-              className="w-14 bg-transparent text-center text-sm font-extrabold text-[#1b1e20] outline-none"
+              className="w-12 bg-transparent text-center text-xs font-black text-slate-900 outline-none"
             />
-            <span className="mr-1 text-[10px] font-bold text-[#8b9895] uppercase tracking-wider">{item.satuan}</span>
+            <span className="mr-1 text-[9px] font-black text-slate-400 uppercase">{item.satuan}</span>
             <button
               type="button"
               onClick={onIncrease}
               disabled={item.qty >= item.stok_tersedia}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] text-[#0a7c72] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-xs transition-all hover:bg-blue-600 hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <span className="material-symbols-outlined text-[18px]">add</span>
+              <span className="material-symbols-outlined text-[16px]">add</span>
             </button>
+            {onOpenNumpad && (
+              <button
+                type="button"
+                onClick={onOpenNumpad}
+                title="Buka Tombol Numpad"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-white hover:text-blue-600"
+              >
+                <span className="material-symbols-outlined text-[16px]">dialpad</span>
+              </button>
+            )}
           </div>
 
-          <p className="text-sm font-extrabold text-[#1b1e20]">{formatRupiah(item.subtotal)}</p>
+          <p className="text-xs sm:text-sm font-black text-slate-900">{formatRupiah(item.subtotal)}</p>
         </div>
 
         {(item.satuan === 'kg' || item.satuan === 'liter' || item.satuan === 'pack') && (
-          <div className="mt-2 flex items-center gap-1.5">
+          <div className="mt-2 flex items-center gap-1">
             {[0.25, 0.5, 0.75].map((fraction) => (
               <button
                 key={fraction}
                 type="button"
                 onClick={() => onSetQty(fraction)}
-                className="rounded-lg bg-[#e7f8f6] px-2.5 py-1 text-[10px] font-extrabold tracking-wide text-[#0a7c72] transition-colors hover:bg-[#0a7c72] hover:text-white"
+                className="rounded-md bg-blue-50 px-2 py-0.5 text-[9px] font-black text-blue-600 border border-blue-100 transition-all hover:bg-blue-600 hover:text-white"
                 disabled={fraction > item.stok_tersedia}
               >
                 {fraction}

@@ -32,7 +32,7 @@ export function AppLayout() {
             type="button"
             onClick={toggleMobileSidebar}
             className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[#f4fffc] text-[#0a7c72] shadow-[0_6px_14px_rgba(10,124,114,0.08)]',
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[#eff6ff] text-[#2563eb] shadow-[0_6px_14px_rgba(37,99,235,0.08)]',
             )}
             aria-label="Buka navigasi"
           >
@@ -41,9 +41,9 @@ export function AppLayout() {
 
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-2.5">
-              <BrandMark size="sm" text={storeName} className="shadow-[0_8px_18px_rgba(10,124,114,0.14)]" />
+              <BrandMark size="sm" text={storeName} className="shadow-[0_8px_18px_rgba(37,99,235,0.14)]" />
               <div className="min-w-0">
-                <p className="truncate text-[14px] font-extrabold tracking-[-0.03em] text-[#0a7c72]">
+                <p className="truncate text-[14px] font-extrabold tracking-[-0.03em] text-[#2563eb]">
                   {storeName}
                 </p>
                 <p className="truncate text-[10px] font-medium uppercase tracking-[0.12em] text-[#8b9895]">
@@ -53,7 +53,7 @@ export function AppLayout() {
             </div>
           </div>
 
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[#0a7c72] text-sm font-extrabold text-white shadow-[0_8px_16px_rgba(10,124,114,0.18)]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[#2563eb] text-sm font-extrabold text-white shadow-[0_8px_16px_rgba(37,99,235,0.18)]">
             {initial}
           </div>
         </div>

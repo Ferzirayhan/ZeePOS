@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import type { UserRole } from '../types/database'
+import { getISOEndOfDay, getISOStartOfDay } from '../utils/date'
 
 export interface AuditLogItem {
   id: number
@@ -31,11 +32,11 @@ export async function getAuditLogs(
     .limit(filters.limit ?? 100)
 
   if (filters.dateFrom) {
-    query = query.gte('created_at', `${filters.dateFrom}T00:00:00`)
+    query = query.gte('created_at', getISOStartOfDay(filters.dateFrom))
   }
 
   if (filters.dateTo) {
-    query = query.lte('created_at', `${filters.dateTo}T23:59:59`)
+    query = query.lte('created_at', getISOEndOfDay(filters.dateTo))
   }
 
   if (filters.action && filters.action !== 'all') {

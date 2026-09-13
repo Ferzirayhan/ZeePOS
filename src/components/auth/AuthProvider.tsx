@@ -8,7 +8,7 @@ function AuthLoadingScreen() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-900 via-teal-800 to-emerald-700 px-6 py-12">
       <div className="w-full max-w-md rounded-[2rem] bg-white/95 p-8 text-center shadow-2xl shadow-teal-950/20 backdrop-blur">
-        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-teal-100 border-t-teal-600" />
+        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-t-teal-600" />
         <h1 className="mt-6 text-2xl font-bold text-slate-900">
           Menyiapkan sesi aplikasi
         </h1>

@@ -303,7 +303,7 @@ function SectionCard({ section }: { section: GuideSection }) {
       <div className="mt-4 space-y-2">
         {section.items.map((item, index) => (
           <div key={item} className="flex gap-3 rounded-[16px] bg-[#f8fbfb] px-4 py-3 text-sm leading-7 text-[#52627d]">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#e7f8f6] text-xs font-extrabold text-[#0a7c72]">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eff6ff] text-xs font-extrabold text-[#2563eb]">
               {index + 1}
             </span>
             <span>{item}</span>
@@ -370,7 +370,7 @@ export function GuidePage() {
         </header>
 
         <div className="space-y-6 bg-[#f7f9f9] px-4 py-4 sm:px-6 sm:py-6">
-          <section className="rounded-[20px] bg-[linear-gradient(135deg,#0a7c72,#0f5d56)] p-6 text-white shadow-[0_14px_40px_rgba(10,124,114,0.20)]">
+          <section className="rounded-[20px] bg-[linear-gradient(135deg,#2563eb,#1e3a8a)] p-6 text-white shadow-[0_14px_40px_rgba(37,99,235,0.20)]">
             <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/70">
               Penjelasan Aplikasi
             </p>

@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { createStaffMember, resetStaffPassword } from '../api/staff'
 import { useSettings } from '../hooks/useSettings'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
@@ -33,11 +34,29 @@ const paymentSchema = z.object({
   payment_confirmation_note: z.string().trim().min(5, 'Catatan konfirmasi wajib diisi'),
 })
 
+const newStaffSchema = z.object({
+  nama: z.string().trim().min(2, 'Nama minimal 2 karakter'),
+  username: z
+    .string()
+    .trim()
+    .min(3, 'Username minimal 3 karakter')
+    .regex(/^[a-z0-9_.-]+$/i, 'Hanya huruf, angka, titik, strip, underscore'),
+  email: z.string().trim().email('Format email tidak valid'),
+  password: z.string().min(6, 'Password minimal 6 karakter'),
+  role: z.enum(['kasir', 'admin']),
+})
+
+const resetPasswordSchema = z.object({
+  new_password: z.string().min(6, 'Password minimal 6 karakter'),
+})
+
 type StoreProfileValues = z.infer<typeof storeProfileSchema>
 type TaxValues = z.infer<typeof taxSchema>
 type TaxInputValues = z.input<typeof taxSchema>
 type PaymentValues = z.infer<typeof paymentSchema>
 type PaymentInputValues = z.input<typeof paymentSchema>
+type NewStaffValues = z.infer<typeof newStaffSchema>
+type ResetPasswordValues = z.infer<typeof resetPasswordSchema>
 
 type SettingsTab = 'toko' | 'pengguna' | 'printer' | 'pajak' | 'pembayaran'
 
@@ -53,6 +72,37 @@ export function SettingsPage() {
   const [savingTax, setSavingTax] = useState(false)
   const [savingPayment, setSavingPayment] = useState(false)
   const [updatingProfileId, setUpdatingProfileId] = useState<string | null>(null)
+  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false)
+  const [resetTargetUser, setResetTargetUser] = useState<Profile | null>(null)
+  const [staffSubmitting, setStaffSubmitting] = useState(false)
+
+  const {
+    register: registerStaff,
+    handleSubmit: handleSubmitStaff,
+    reset: resetStaffForm,
+    formState: { errors: staffErrors },
+  } = useForm<NewStaffValues>({
+    resolver: zodResolver(newStaffSchema),
+    defaultValues: {
+      nama: '',
+      username: '',
+      email: '',
+      password: '',
+      role: 'kasir',
+    },
+  })
+
+  const {
+    register: registerResetPw,
+    handleSubmit: handleSubmitResetPw,
+    reset: resetResetPwForm,
+    formState: { errors: resetPwErrors },
+  } = useForm<ResetPasswordValues>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      new_password: '',
+    },
+  })
 
   const {
     register: registerStore,
@@ -231,6 +281,58 @@ export function SettingsPage() {
     }
   }
 
+  const handleCreateStaff = async (values: NewStaffValues) => {
+    try {
+      setStaffSubmitting(true)
+      await createStaffMember({
+        email: values.email,
+        password: values.password,
+        nama: values.nama,
+        username: values.username,
+        role: values.role,
+      })
+      pushToast({
+        title: 'Staf Berhasil Ditambahkan',
+        description: `Akun ${values.nama} (${values.role}) siap digunakan login.`,
+        variant: 'success',
+      })
+      resetStaffForm()
+      setIsAddStaffOpen(false)
+      await loadProfiles()
+    } catch (createErr) {
+      pushToast({
+        title: 'Gagal Menambah Staf',
+        description: createErr instanceof Error ? createErr.message : 'Terjadi kesalahan sistem',
+        variant: 'error',
+      })
+    } finally {
+      setStaffSubmitting(false)
+    }
+  }
+
+  const handleResetPassword = async (values: ResetPasswordValues) => {
+    if (!resetTargetUser) return
+    try {
+      setStaffSubmitting(true)
+      await resetStaffPassword(resetTargetUser.id, values.new_password)
+      pushToast({
+        title: 'Password Berhasil Direset',
+        description: `Password untuk ${resetTargetUser.nama} telah diperbarui.`,
+        variant: 'success',
+      })
+      resetResetPwForm()
+      setResetTargetUser(null)
+    } catch (resetErr) {
+      pushToast({
+        title: 'Gagal Reset Password',
+        description: resetErr instanceof Error ? resetErr.message : 'Terjadi kesalahan sistem',
+        variant: 'error',
+      })
+    } finally {
+      setStaffSubmitting(false)
+    }
+  }
+
   const toggleProfileActive = async (profile: Profile) => {
     setUpdatingProfileId(profile.id)
 
@@ -263,15 +365,6 @@ export function SettingsPage() {
       setUpdatingProfileId(null)
     }
   }
-
-  const addUserSteps = useMemo(
-    () => [
-      'Buka Supabase Studio > Authentication > Users > Add user.',
-      'Isi email dan password kasir baru.',
-      'Salin UUID user baru, lalu tambahkan row di tabel profiles dengan nama, username, dan role.',
-    ],
-    [],
-  )
 
   const selectedPpnEnabled = watchTax('ppn_enabled')
 
@@ -353,7 +446,7 @@ export function SettingsPage() {
                 onClick={() => setActiveTab(value as SettingsTab)}
                 className={
                   activeTab === value
-                    ? 'rounded-[12px] bg-[#f4fffc] px-5 py-2.5 font-bold text-[#0a7c72]'
+                    ? 'rounded-[12px] bg-[#eff6ff] px-5 py-2.5 font-bold text-[#2563eb]'
                     : 'rounded-[12px] px-5 py-2.5 font-medium text-[#7d8987]'
                 }
               >
@@ -380,7 +473,7 @@ export function SettingsPage() {
                   <button
                     type="submit"
                     disabled={savingStore || loading}
-                    className="rounded-[14px] bg-[#0a7c72] px-5 py-3 font-bold text-white disabled:opacity-60"
+                    className="rounded-[14px] bg-[#2563eb] px-5 py-3 font-bold text-white disabled:opacity-60"
                   >
                     {savingStore ? 'Menyimpan...' : 'Simpan Perubahan'}
                   </button>
@@ -393,7 +486,7 @@ export function SettingsPage() {
                         Nama Toko
                       </span>
                       <input
-                        className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                        className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                         {...registerStore('nama_toko')}
                       />
                       {storeErrors.nama_toko ? (
@@ -408,7 +501,7 @@ export function SettingsPage() {
                         No. Telepon
                       </span>
                       <input
-                        className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                        className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                         {...registerStore('no_telp')}
                       />
                       {storeErrors.no_telp ? (
@@ -425,7 +518,7 @@ export function SettingsPage() {
                     </span>
                     <textarea
                       rows={3}
-                      className="w-full rounded-[14px] border-none bg-[#eef0f3] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                      className="w-full rounded-[14px] border-none bg-[#eef0f3] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                       {...registerStore('alamat')}
                     />
                     {storeErrors.alamat ? (
@@ -441,7 +534,7 @@ export function SettingsPage() {
                     </span>
                     <textarea
                       rows={4}
-                      className="w-full rounded-[14px] border-none bg-[#eef0f3] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                      className="w-full rounded-[14px] border-none bg-[#eef0f3] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                       {...registerStore('header_struk')}
                     />
                     {storeErrors.header_struk ? (
@@ -457,7 +550,7 @@ export function SettingsPage() {
                     </span>
                     <textarea
                       rows={4}
-                      className="w-full rounded-[14px] border-none bg-[#eef0f3] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                      className="w-full rounded-[14px] border-none bg-[#eef0f3] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                       {...registerStore('footer_struk')}
                     />
                     {storeErrors.footer_struk ? (
@@ -470,9 +563,9 @@ export function SettingsPage() {
               </form>
 
               <aside className="space-y-6">
-                <div className="rounded-[20px] border border-[#d5ebe7] bg-[#f4fffc] p-6">
+                <div className="rounded-[20px] border border-[#bfdbfe] bg-[#eff6ff] p-6">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0a7c72] text-white">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2563eb] text-white">
                       <span className="material-symbols-outlined">storefront</span>
                     </div>
                     <div>
@@ -494,15 +587,15 @@ export function SettingsPage() {
                   <div className="mt-4 rounded-[16px] bg-[#f7f9f9] p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-[#0a7c72]">print</span>
+                        <span className="material-symbols-outlined text-[#2563eb]">print</span>
                         <span className="text-sm font-medium text-[#1b1e20]">Epson TM-T82III</span>
                       </div>
-                      <span className="h-2 w-2 rounded-full bg-[#0a7c72]" />
+                      <span className="h-2 w-2 rounded-full bg-[#2563eb]" />
                     </div>
                     <button
                       type="button"
                       onClick={handleTestPrint}
-                      className="mt-4 w-full rounded-[12px] border border-[#c8e2de] py-2 text-sm font-bold text-[#0a7c72]"
+                      className="mt-4 w-full rounded-[12px] border border-[#bfdbfe] py-2 text-sm font-bold text-[#2563eb]"
                     >
                       Test Print Struk
                     </button>
@@ -531,7 +624,7 @@ export function SettingsPage() {
                     </label>
                     <input
                       {...registerPayment('payment_qris_label')}
-                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                     />
                     {paymentErrors.payment_qris_label ? (
                       <p className="mt-2 text-xs font-medium text-[#ba1a1a]">{paymentErrors.payment_qris_label.message}</p>
@@ -545,7 +638,7 @@ export function SettingsPage() {
                     <input
                       {...registerPayment('payment_whatsapp_number')}
                       placeholder="62812xxxx"
-                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                     />
                   </div>
 
@@ -555,7 +648,7 @@ export function SettingsPage() {
                     </label>
                     <input
                       {...registerPayment('payment_transfer_label')}
-                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                     />
                     {paymentErrors.payment_transfer_label ? (
                       <p className="mt-2 text-xs font-medium text-[#ba1a1a]">{paymentErrors.payment_transfer_label.message}</p>
@@ -568,7 +661,7 @@ export function SettingsPage() {
                     </label>
                     <input
                       {...registerPayment('payment_transfer_bank')}
-                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                     />
                     {paymentErrors.payment_transfer_bank ? (
                       <p className="mt-2 text-xs font-medium text-[#ba1a1a]">{paymentErrors.payment_transfer_bank.message}</p>
@@ -581,7 +674,7 @@ export function SettingsPage() {
                     </label>
                     <input
                       {...registerPayment('payment_transfer_account_name')}
-                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                     />
                     {paymentErrors.payment_transfer_account_name ? (
                       <p className="mt-2 text-xs font-medium text-[#ba1a1a]">{paymentErrors.payment_transfer_account_name.message}</p>
@@ -594,7 +687,7 @@ export function SettingsPage() {
                     </label>
                     <input
                       {...registerPayment('payment_transfer_account_number')}
-                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                     />
                     {paymentErrors.payment_transfer_account_number ? (
                       <p className="mt-2 text-xs font-medium text-[#ba1a1a]">{paymentErrors.payment_transfer_account_number.message}</p>
@@ -609,7 +702,7 @@ export function SettingsPage() {
                   <textarea
                     {...registerPayment('payment_confirmation_note')}
                     rows={4}
-                    className="mt-2 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                    className="mt-2 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                   />
                   {paymentErrors.payment_confirmation_note ? (
                     <p className="mt-2 text-xs font-medium text-[#ba1a1a]">{paymentErrors.payment_confirmation_note.message}</p>
@@ -620,7 +713,7 @@ export function SettingsPage() {
                   <button
                     type="submit"
                     disabled={savingPayment}
-                    className="rounded-[14px] bg-[#0a7c72] px-5 py-3 font-bold text-white disabled:opacity-60"
+                    className="rounded-[14px] bg-[#2563eb] px-5 py-3 font-bold text-white disabled:opacity-60"
                   >
                     {savingPayment ? 'Menyimpan...' : 'Simpan Pengaturan Pembayaran'}
                   </button>
@@ -631,44 +724,33 @@ export function SettingsPage() {
 
           {activeTab === 'pengguna' ? (
             <section className="space-y-6">
-              <div className="rounded-[20px] border border-[#d5ebe7] bg-[#f4fffc] p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-[22px] font-extrabold text-[#1b1e20]">
-                      Tambah Kasir Baru
-                    </h2>
-                    <p className="mt-1 text-sm text-[#52627d]">
-                      Pembuatan akun auth butuh akses admin Supabase. Gunakan alur aman di bawah ini.
-                    </p>
-                  </div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-[20px] border border-[#bfdbfe] bg-[#eff6ff] p-6">
+                <div>
+                  <h2 className="text-[22px] font-extrabold text-[#1b1e20]">
+                    Kelola Kasir & Tim
+                  </h2>
+                  <p className="mt-1 text-sm text-[#52627d]">
+                    Daftarkan akun kasir atau staf tambahan untuk toko Anda secara instan.
+                  </p>
+                </div>
+                {isAdmin ? (
                   <button
                     type="button"
-                    onClick={() =>
-                      pushToast({
-                        title: 'Gunakan Supabase Dashboard',
-                        description:
-                          'Buat user di Authentication > Users, lalu tambahkan row ke tabel profiles.',
-                        variant: 'info',
-                      })
-                    }
-                    className="rounded-[14px] bg-[#0a7c72] px-5 py-3 font-bold text-white"
+                    onClick={() => {
+                      resetStaffForm()
+                      setIsAddStaffOpen(true)
+                    }}
+                    className="inline-flex items-center justify-center rounded-[14px] bg-[#2563eb] px-5 py-3 font-bold text-white shadow-sm transition hover:bg-[#1d4ed8]"
                   >
-                    Panduan Tambah Kasir
+                    + Tambah Kasir / Staf
                   </button>
-                </div>
-                <ol className="mt-4 space-y-2 text-sm text-[#52627d]">
-                  {addUserSteps.map((step, index) => (
-                    <li key={step}>
-                      {index + 1}. {step}
-                    </li>
-                  ))}
-                </ol>
+                ) : null}
               </div>
 
               <div className="rounded-[20px] bg-white shadow-[0_6px_24px_rgba(15,23,42,0.04)]">
                 <div className="flex items-center justify-between border-b border-[#eef1f1] px-5 py-4">
                   <h2 className="text-[18px] font-extrabold text-[#1b1e20]">
-                    Manajemen Pengguna
+                    Daftar Pengguna ({profiles.length})
                   </h2>
                   <button
                     type="button"
@@ -712,7 +794,7 @@ export function SettingsPage() {
                                 <span
                                   className={
                                     profile.role === 'admin'
-                                      ? 'rounded-full bg-[#ccfaf1] px-3 py-1 text-[10px] font-extrabold uppercase text-[#0a7c72]'
+                                      ? 'rounded-full bg-[#ccfaf1] px-3 py-1 text-[10px] font-extrabold uppercase text-[#2563eb]'
                                       : 'rounded-full bg-[#ffddb8] px-3 py-1 text-[10px] font-extrabold uppercase text-[#855300]'
                                   }
                                 >
@@ -723,7 +805,7 @@ export function SettingsPage() {
                                 <span
                                   className={
                                     profile.is_active
-                                      ? 'text-sm font-bold text-[#0a7c72]'
+                                      ? 'text-sm font-bold text-[#2563eb]'
                                       : 'text-sm font-bold text-[#ba1a1a]'
                                   }
                                 >
@@ -732,18 +814,30 @@ export function SettingsPage() {
                               </td>
                               <td className="px-5 py-4">
                                 {isAdmin ? (
-                                  <button
-                                    type="button"
-                                    disabled={updatingProfileId === profile.id}
-                                    onClick={() => void toggleProfileActive(profile)}
-                                    className="rounded-[12px] bg-[#eef3f3] px-4 py-2 text-sm font-bold text-[#52627d] disabled:opacity-60"
-                                  >
-                                    {updatingProfileId === profile.id
-                                      ? 'Memproses...'
-                                      : profile.is_active
-                                        ? 'Nonaktifkan'
-                                        : 'Aktifkan'}
-                                  </button>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      disabled={updatingProfileId === profile.id}
+                                      onClick={() => void toggleProfileActive(profile)}
+                                      className="rounded-[12px] bg-[#eef3f3] px-3 py-2 text-xs font-bold text-[#52627d] transition hover:bg-[#dfe5e5] disabled:opacity-60"
+                                    >
+                                      {updatingProfileId === profile.id
+                                        ? '...'
+                                        : profile.is_active
+                                          ? 'Nonaktifkan'
+                                          : 'Aktifkan'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        resetResetPwForm()
+                                        setResetTargetUser(profile)
+                                      }}
+                                      className="rounded-[12px] border border-[#bfdbfe] px-3 py-2 text-xs font-bold text-[#2563eb] transition hover:bg-[#eff6ff]"
+                                    >
+                                      Reset Password
+                                    </button>
+                                  </div>
                                 ) : (
                                   <span className="text-sm text-[#8b9895]">Admin only</span>
                                 )}
@@ -776,7 +870,7 @@ export function SettingsPage() {
                 </div>
               </div>
 
-              <div className="rounded-[20px] border border-[#d5ebe7] bg-[#f4fffc] p-6">
+              <div className="rounded-[20px] border border-[#bfdbfe] bg-[#eff6ff] p-6">
                 <h2 className="text-[22px] font-extrabold text-[#1b1e20]">
                   Catatan Integrasi
                 </h2>
@@ -819,7 +913,7 @@ export function SettingsPage() {
                       min={0}
                       max={100}
                       disabled={!selectedPpnEnabled}
-                      className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15 disabled:opacity-60"
+                      className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15 disabled:opacity-60"
                       {...registerTax('ppn_persen')}
                     />
                     {taxErrors.ppn_persen ? (
@@ -832,18 +926,18 @@ export function SettingsPage() {
                   <button
                     type="submit"
                     disabled={savingTax}
-                    className="rounded-[14px] bg-[#0a7c72] px-5 py-3 font-bold text-white disabled:opacity-60"
+                    className="rounded-[14px] bg-[#2563eb] px-5 py-3 font-bold text-white disabled:opacity-60"
                   >
                     {savingTax ? 'Menyimpan...' : 'Simpan Pengaturan Pajak'}
                   </button>
                 </div>
               </form>
 
-              <aside className="rounded-[20px] border border-[#d5ebe7] bg-[#f4fffc] p-6">
+              <aside className="rounded-[20px] border border-[#bfdbfe] bg-[#eff6ff] p-6">
                 <h3 className="font-extrabold text-[#1b1e20]">Ringkasan Saat Ini</h3>
                 <p className="mt-3 text-sm text-[#52627d]">
                   PPN default saat ini:
-                  <span className="ml-2 font-bold text-[#0a7c72]">
+                  <span className="ml-2 font-bold text-[#2563eb]">
                     {Number(settings.ppn_persen ?? 0)}%
                   </span>
                 </p>
@@ -855,6 +949,167 @@ export function SettingsPage() {
           ) : null}
         </div>
       </div>
+
+      {/* Modal Tambah Staf */}
+      {isAddStaffOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-2xl sm:p-8">
+            <div className="flex items-center justify-between pb-4 border-b border-[#eef1f1]">
+              <h3 className="text-xl font-extrabold text-[#1b1e20]">Tambah Staf / Kasir</h3>
+              <button
+                type="button"
+                onClick={() => setIsAddStaffOpen(false)}
+                className="text-[#8b9895] hover:text-[#1b1e20] text-xl font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSubmitStaff(handleCreateStaff)} className="mt-5 space-y-4">
+              <div>
+                <label className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]">
+                  Nama Lengkap
+                </label>
+                <input
+                  {...registerStaff('nama')}
+                  placeholder="Contoh: Budi Santoso"
+                  className="mt-1 h-12 w-full rounded-[14px] bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
+                />
+                {staffErrors.nama ? (
+                  <p className="mt-1 text-xs text-[#ba1a1a]">{staffErrors.nama.message}</p>
+                ) : null}
+              </div>
+
+              <div>
+                <label className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]">
+                  Username
+                </label>
+                <input
+                  {...registerStaff('username')}
+                  placeholder="budi_kasir"
+                  className="mt-1 h-12 w-full rounded-[14px] bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
+                />
+                {staffErrors.username ? (
+                  <p className="mt-1 text-xs text-[#ba1a1a]">{staffErrors.username.message}</p>
+                ) : null}
+              </div>
+
+              <div>
+                <label className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]">
+                  Email Login
+                </label>
+                <input
+                  type="email"
+                  {...registerStaff('email')}
+                  placeholder="budi@toko.com"
+                  className="mt-1 h-12 w-full rounded-[14px] bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
+                />
+                {staffErrors.email ? (
+                  <p className="mt-1 text-xs text-[#ba1a1a]">{staffErrors.email.message}</p>
+                ) : null}
+              </div>
+
+              <div>
+                <label className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  {...registerStaff('password')}
+                  placeholder="Minimal 6 karakter"
+                  className="mt-1 h-12 w-full rounded-[14px] bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
+                />
+                {staffErrors.password ? (
+                  <p className="mt-1 text-xs text-[#ba1a1a]">{staffErrors.password.message}</p>
+                ) : null}
+              </div>
+
+              <div>
+                <label className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]">
+                  Peran / Role
+                </label>
+                <select
+                  {...registerStaff('role')}
+                  className="mt-1 h-12 w-full rounded-[14px] bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
+                >
+                  <option value="kasir">Kasir (Hanya akses kasir POS)</option>
+                  <option value="admin">Admin (Akses penuh termasuk laporan & stok)</option>
+                </select>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddStaffOpen(false)}
+                  className="rounded-[14px] bg-[#f1f3f5] px-5 py-3 font-bold text-[#52627d]"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={staffSubmitting}
+                  className="rounded-[14px] bg-[#2563eb] px-5 py-3 font-bold text-white transition hover:bg-[#1d4ed8] disabled:opacity-60"
+                >
+                  {staffSubmitting ? 'Menyimpan...' : 'Daftarkan Staf'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Modal Reset Password */}
+      {resetTargetUser ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-2xl sm:p-8">
+            <div className="flex items-center justify-between pb-4 border-b border-[#eef1f1]">
+              <div>
+                <h3 className="text-xl font-extrabold text-[#1b1e20]">Reset Password</h3>
+                <p className="text-xs text-[#52627d] mt-0.5">Untuk akun: {resetTargetUser.nama}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResetTargetUser(null)}
+                className="text-[#8b9895] hover:text-[#1b1e20] text-xl font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSubmitResetPw(handleResetPassword)} className="mt-5 space-y-4">
+              <div>
+                <label className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]">
+                  Password Baru
+                </label>
+                <input
+                  type="password"
+                  {...registerResetPw('new_password')}
+                  placeholder="Minimal 6 karakter"
+                  className="mt-1 h-12 w-full rounded-[14px] bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
+                />
+                {resetPwErrors.new_password ? (
+                  <p className="mt-1 text-xs text-[#ba1a1a]">{resetPwErrors.new_password.message}</p>
+                ) : null}
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setResetTargetUser(null)}
+                  className="rounded-[14px] bg-[#f1f3f5] px-5 py-3 font-bold text-[#52627d]"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={staffSubmitting}
+                  className="rounded-[14px] bg-[#2563eb] px-5 py-3 font-bold text-white transition hover:bg-[#1d4ed8] disabled:opacity-60"
+                >
+                  {staffSubmitting ? 'Menyimpan...' : 'Ganti Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }

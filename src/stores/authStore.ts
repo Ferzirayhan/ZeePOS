@@ -1,10 +1,11 @@
 import { create } from 'zustand'
 import type { Session, Subscription } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import type { Profile } from '../types/database'
+import type { Profile, Tenant } from '../types/database'
 
 interface AuthState {
   user: Profile | null
+  tenant: Tenant | null
   session: Session | null
   loading: boolean
   initialized: boolean
@@ -17,6 +18,7 @@ interface AuthState {
   registerTenant: (tenantName: string, tenantSlug: string, userName: string, username: string) => Promise<void>
   logout: () => Promise<void>
   getProfile: (userId?: string) => Promise<Profile | null>
+  getTenant: (tenantId?: string) => Promise<Tenant | null>
   clearError: () => void
 }
 
@@ -24,6 +26,7 @@ let authSubscription: Subscription | null = null
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
+  tenant: null,
   session: null,
   loading: true,
   initialized: false,
@@ -47,6 +50,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: error.message,
         session: null,
         user: null,
+        tenant: null,
         isAdmin: false,
       })
       return
@@ -56,10 +60,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const profile = session?.user?.id
       ? await get().getProfile(session.user.id)
       : null
+    const tenant = profile?.tenant_id
+      ? await get().getTenant(profile.tenant_id)
+      : null
 
     set({
       session,
       user: profile,
+      tenant,
       isAdmin: profile?.role === 'admin',
       needsOnboarding: session != null && !profile,
       loading: false,
@@ -73,10 +81,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const nextProfile = nextSession?.user?.id
               ? await get().getProfile(nextSession.user.id)
               : null
+            const nextTenant = nextProfile?.tenant_id
+              ? await get().getTenant(nextProfile.tenant_id)
+              : null
 
             set({
               session: nextSession,
               user: nextProfile,
+              tenant: nextTenant,
               isAdmin: nextProfile?.role === 'admin',
               needsOnboarding: nextSession != null && !nextProfile,
               loading: false,
@@ -157,9 +169,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     const profile = await get().getProfile()
+    const tenant = profile?.tenant_id ? await get().getTenant(profile.tenant_id) : null
 
     set({
       user: profile,
+      tenant,
       isAdmin: profile?.role === 'admin',
       needsOnboarding: false,
       loading: false,
@@ -180,6 +194,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({
       session: null,
       user: null,
+      tenant: null,
       isAdmin: false,
       needsOnboarding: false,
       loading: false,
@@ -202,6 +217,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     if (error) {
       set({ error: error.message })
+      return null
+    }
+
+    return data
+  },
+
+  getTenant: async (tenantId) => {
+    const targetTenantId = tenantId ?? get().user?.tenant_id
+
+    if (!targetTenantId) {
+      return null
+    }
+
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('*')
+      .eq('id', targetTenantId)
+      .maybeSingle()
+
+    if (error || !data) {
       return null
     }
 

@@ -8,11 +8,11 @@ DELETE FROM auth.identities
 WHERE user_id IN (
   SELECT id
   FROM auth.users
-  WHERE email NOT IN ('admin@ratih.com', 'kasir1@ratih.com')
+  WHERE email NOT IN ('admin@zeepos.com', 'kasir1@zeepos.com')
 );
 
 DELETE FROM auth.users
-WHERE email NOT IN ('admin@ratih.com', 'kasir1@ratih.com');
+WHERE email NOT IN ('admin@zeepos.com', 'kasir1@zeepos.com');
 
 -- Kosongkan data operasional aplikasi.
 TRUNCATE TABLE
@@ -48,19 +48,19 @@ WHERE username IN ('admin', 'kasir1');
 TRUNCATE TABLE public.store_settings RESTART IDENTITY;
 
 INSERT INTO public.store_settings (key, value) VALUES
-  ('nama_toko', 'Tara Plastic'),
-  ('alamat', 'Jl. Pasar Baru No. 12, Bekasi'),
+  ('nama_toko', 'ZeePOS Store'),
+  ('alamat', 'Jl. Utama No. 123, Jakarta'),
   ('no_telp', '0812-3456-7890'),
-  ('header_struk', 'Tara Plastic\nJl. Pasar Baru No. 12, Bekasi\nTelp: 0812-3456-7890'),
+  ('header_struk', 'ZeePOS Store\nJl. Utama No. 123, Jakarta\nTelp: 0812-3456-7890'),
   ('footer_struk', 'Terima kasih telah berbelanja!\nBarang yang sudah dibeli tidak dapat dikembalikan.'),
   ('ppn_persen', '0'),
-  ('payment_qris_label', 'QRIS Tara Plastic'),
+  ('payment_qris_label', 'QRIS ZeePOS'),
   ('payment_transfer_label', 'Transfer Bank'),
-  ('payment_transfer_account_name', 'Tara Plastic'),
+  ('payment_transfer_account_name', 'ZeePOS Store'),
   ('payment_transfer_account_number', ''),
   ('payment_transfer_bank', ''),
   ('payment_whatsapp_number', ''),
-  ('payment_confirmation_note', 'Pastikan dana sudah masuk sebelum struk dicetak.'),
+  ('payment_confirmation_note', 'Pastikan dana sudah masuk mecektak struk.'),
   ('versi_app', '1.0.0');
 
 COMMIT;

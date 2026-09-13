@@ -12,6 +12,7 @@ import { Skeleton } from '../components/ui/Skeleton'
 import { useUIStore } from '../stores/uiStore'
 import { useToastStore } from '../stores/toastStore'
 import type { ProductWithCategory, StockAdjustment } from '../types/database'
+import { exportToExcel } from '../utils/export'
 import { cn } from '../utils/cn'
 
 const adjustmentSchema = z.object({
@@ -344,8 +345,36 @@ export function StockPage() {
               Pantau ketersediaan barang dan lakukan penyesuaian stok dengan cepat.
             </p>
           </div>
-          <div className="rounded-[14px] bg-[#f4fffc] px-4 py-3 text-sm font-bold text-[#0a7c72]">
-            Akses admin: CRUD stok aktif
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                const rows = products.map((p) => ({
+                  SKU: p.sku ?? '-',
+                  Barcode: p.barcode ?? '-',
+                  Nama: p.nama ?? '-',
+                  Kategori: p.category_nama ?? 'Tanpa Kategori',
+                  Satuan: p.satuan ?? 'pcs',
+                  Stok: Number(p.stok ?? 0),
+                  'Stok Minimum': Number(p.stok_minimum ?? 0),
+                  'Status Stok': p.stok_status ?? 'aman',
+                  Status: p.is_active ? 'Aktif' : 'Nonaktif',
+                }))
+                exportToExcel(rows, `laporan-stok-${new Date().toISOString().slice(0, 10)}.xlsx`, 'Stok')
+                pushToast({
+                  title: 'Export Berhasil',
+                  description: `${rows.length} barang diekspor ke Excel.`,
+                  variant: 'success',
+                })
+              }}
+              className="flex items-center justify-center gap-2 rounded-[14px] bg-[#2563eb] px-4 py-3 text-sm font-bold text-white shadow-[0_8px_18px_rgba(37,99,235,0.18)]"
+            >
+              <span className="material-symbols-outlined text-[18px]">download</span>
+              Export Excel
+            </button>
+            <div className="rounded-[14px] bg-[#eff6ff] px-4 py-3 text-sm font-bold text-[#2563eb]">
+              Akses admin: CRUD stok aktif
+            </div>
           </div>
         </header>
 
@@ -372,7 +401,7 @@ export function StockPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Cari produk atau SKU..."
-                className="h-11 w-full min-w-0 rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15 sm:min-w-[240px] sm:w-auto"
+                className="h-11 w-full min-w-0 rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15 sm:min-w-[240px] sm:w-auto"
               />
               {[
                 ['all', 'Semua Produk'],
@@ -385,7 +414,7 @@ export function StockPage() {
                   type="button"
                   onClick={() => setStatusFilter(value as typeof statusFilter)}
                   className={statusFilter === value
-                    ? 'rounded-full bg-[#0a7c72] px-4 py-2 text-sm font-bold text-white'
+                    ? 'rounded-full bg-[#2563eb] px-4 py-2 text-sm font-bold text-white'
                     : 'rounded-full bg-[#eef3f3] px-4 py-2 text-sm font-bold text-[#52627d]'}
                 >
                   {label}
@@ -427,7 +456,7 @@ export function StockPage() {
                               {product.foto_url ? (
                                 <img src={product.foto_url} alt={product.nama ?? 'Produk'} className="h-12 w-12 rounded-[14px] object-cover" />
                               ) : (
-                                <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-[#e7f8f6] text-[#0a7c72]">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-[#eff6ff] text-[#2563eb]">
                                   <span className="material-symbols-outlined">inventory_2</span>
                                 </div>
                               )}
@@ -449,7 +478,7 @@ export function StockPage() {
                               ? 'rounded-full bg-[#ffdad6] px-3 py-1 text-[10px] font-extrabold uppercase text-[#ba1a1a]'
                               : product.stok_status === 'menipis'
                                 ? 'rounded-full bg-[#ffddb8] px-3 py-1 text-[10px] font-extrabold uppercase text-[#855300]'
-                                : 'rounded-full bg-[#ccfaf1] px-3 py-1 text-[10px] font-extrabold uppercase text-[#0a7c72]'}>
+                                : 'rounded-full bg-[#ccfaf1] px-3 py-1 text-[10px] font-extrabold uppercase text-[#2563eb]'}>
                               {product.stok_status ?? 'aman'}
                             </span>
                           </td>
@@ -458,14 +487,14 @@ export function StockPage() {
                               <button
                                 type="button"
                                 onClick={() => openAdjustment(product)}
-                                className="rounded-[12px] px-3 py-2 text-sm font-bold text-[#0a7c72] hover:bg-[#e7f8f6]"
+                                className="rounded-[12px] px-3 py-2 text-sm font-bold text-[#2563eb] hover:bg-[#eff6ff]"
                               >
                                 Adjust
                               </button>
                               <button
                                 type="button"
                                 onClick={() => openRepack(product)}
-                                className="rounded-[12px] px-3 py-2 text-sm font-bold text-[#0a7c72] hover:bg-[#e7f8f6]"
+                                className="rounded-[12px] px-3 py-2 text-sm font-bold text-[#2563eb] hover:bg-[#eff6ff]"
                               >
                                 Pecah
                               </button>
@@ -506,7 +535,7 @@ export function StockPage() {
                       {product.foto_url ? (
                         <img src={product.foto_url} alt={product.nama ?? 'Produk'} className="h-14 w-14 rounded-[14px] object-cover" />
                       ) : (
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] bg-[#e7f8f6] text-[#0a7c72]">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] bg-[#eff6ff] text-[#2563eb]">
                           <span className="material-symbols-outlined">inventory_2</span>
                         </div>
                       )}
@@ -533,7 +562,7 @@ export function StockPage() {
                         ? 'rounded-full bg-[#ffdad6] px-3 py-1 text-[10px] font-extrabold uppercase text-[#ba1a1a]'
                         : product.stok_status === 'menipis'
                           ? 'rounded-full bg-[#ffddb8] px-3 py-1 text-[10px] font-extrabold uppercase text-[#855300]'
-                          : 'rounded-full bg-[#ccfaf1] px-3 py-1 text-[10px] font-extrabold uppercase text-[#0a7c72]'}>
+                          : 'rounded-full bg-[#ccfaf1] px-3 py-1 text-[10px] font-extrabold uppercase text-[#2563eb]'}>
                         {product.stok_status ?? 'aman'}
                       </span>
                     </div>
@@ -542,14 +571,14 @@ export function StockPage() {
                       <button
                         type="button"
                         onClick={() => openAdjustment(product)}
-                        className="rounded-[12px] bg-[#e7f8f6] px-3 py-2 text-xs font-bold text-[#0a7c72]"
+                        className="rounded-[12px] bg-[#eff6ff] px-3 py-2 text-xs font-bold text-[#2563eb]"
                       >
                         Adjust
                       </button>
                       <button
                         type="button"
                         onClick={() => openRepack(product)}
-                        className="rounded-[12px] bg-[#e7f8f6] px-3 py-2 text-xs font-bold text-[#0a7c72]"
+                        className="rounded-[12px] bg-[#eff6ff] px-3 py-2 text-xs font-bold text-[#2563eb]"
                       >
                         Pecah
                       </button>
@@ -593,7 +622,7 @@ export function StockPage() {
           <div className="space-y-2">
             <label className="text-sm font-bold text-[#52627d]">Jenis</label>
             <select
-              className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+              className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
               {...register('jenis')}
             >
               <option value="masuk">Masuk</option>
@@ -607,7 +636,7 @@ export function StockPage() {
             <input
               type="number"
               min={0}
-              className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+              className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
               {...register('jumlah')}
             />
             {errors.jumlah ? <p className="text-sm text-[#ba1a1a]">{errors.jumlah.message}</p> : null}
@@ -617,7 +646,7 @@ export function StockPage() {
             <label className="text-sm font-bold text-[#52627d]">Keterangan</label>
             <textarea
               rows={3}
-              className="w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+              className="w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
               {...register('keterangan')}
             />
           </div>
@@ -629,7 +658,7 @@ export function StockPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-[12px] bg-[#0a7c72] px-5 py-2 font-bold text-white disabled:opacity-60"
+              className="rounded-[12px] bg-[#2563eb] px-5 py-2 font-bold text-white disabled:opacity-60"
             >
               {submitting ? 'Menyimpan...' : 'Simpan'}
             </button>
@@ -648,7 +677,7 @@ export function StockPage() {
           <div className="rounded-[16px] border border-[#eef1f1] bg-[#fbfdfd] p-4 text-sm">
             <p className="font-bold text-[#52627d]">Sumber (Yang akan dikurangi)</p>
             <p className="mt-1 text-[#1b1e20]">{selectedProduct?.nama}</p>
-            <p className="mt-1 font-bold text-[#0a7c72]">Stok tersedia: {selectedProduct?.stok} {selectedProduct?.satuan}</p>
+            <p className="mt-1 font-bold text-[#2563eb]">Stok tersedia: {selectedProduct?.stok} {selectedProduct?.satuan}</p>
           </div>
 
           <div className="space-y-2">
@@ -658,7 +687,7 @@ export function StockPage() {
                 type="number"
                 step="0.01"
                 min={0.01}
-                className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                 {...registerRepack('sourceQty')}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#8b9895]">
@@ -672,7 +701,7 @@ export function StockPage() {
             <div className="space-y-2">
               <label className="text-sm font-bold text-[#52627d]">Produk Tujuan (Yang akan ditambah)</label>
               <select
-                className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                 {...registerRepack('targetProductId')}
               >
                 <option value={0}>-- Pilih Produk Tujuan --</option>
@@ -694,7 +723,7 @@ export function StockPage() {
               type="number"
               step="0.01"
               min={0.01}
-              className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+              className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
               {...registerRepack('targetQty')}
             />
             {repackErrors.targetQty ? <p className="text-sm text-[#ba1a1a]">{repackErrors.targetQty.message}</p> : null}
@@ -707,7 +736,7 @@ export function StockPage() {
             <button
               type="submit"
               disabled={repackSubmitting}
-              className="rounded-[12px] bg-[#0a7c72] px-5 py-2 font-bold text-white disabled:opacity-60"
+              className="rounded-[12px] bg-[#2563eb] px-5 py-2 font-bold text-white disabled:opacity-60"
             >
               {repackSubmitting ? 'Memproses...' : 'Proses Pecah Stok'}
             </button>
@@ -728,7 +757,7 @@ export function StockPage() {
             <input
               type="number"
               min={0}
-              className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+              className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
               {...registerEdit('stok')}
             />
             {editErrors.stok ? <p className="text-sm text-[#ba1a1a]">{editErrors.stok.message}</p> : null}
@@ -739,7 +768,7 @@ export function StockPage() {
             <input
               type="number"
               min={0}
-              className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+              className="h-11 w-full rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
               {...registerEdit('stok_minimum')}
             />
             {editErrors.stok_minimum ? (
@@ -759,7 +788,7 @@ export function StockPage() {
             <button
               type="submit"
               disabled={editSubmitting}
-              className="rounded-[12px] bg-[#0a7c72] px-5 py-2 font-bold text-white disabled:opacity-60"
+              className="rounded-[12px] bg-[#2563eb] px-5 py-2 font-bold text-white disabled:opacity-60"
             >
               {editSubmitting ? 'Menyimpan...' : 'Simpan'}
             </button>

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { CartItem, CartState, DiscountTier } from '../types'
-import type { MetodeBayar, ProductWithCategory } from '../types/database'
+import type { MetodeBayar, ProductWithCategory, ProductUnit } from '../types/database'
 
 function getTierDiscount(qty: number, tiers: DiscountTier[]): number {
   if (!tiers.length) return 0
@@ -12,14 +12,13 @@ function getEffectiveDiscount(qty: number, tiers: DiscountTier[], diskonProduk: 
   return Math.max(getTierDiscount(qty, tiers), diskonProduk)
 }
 
-function roundSubtotal(value: number, hasDiscount: boolean): number {
-  if (!hasDiscount) return Math.round(value)
-  return Math.round(value / 500) * 500
+function roundSubtotal(value: number): number {
+  return Math.round(value)
 }
 
 interface CartStore extends CartState {
   ppn_persen: number
-  addItem: (product: ProductWithCategory, tiers?: DiscountTier[]) => void
+  addItem: (product: ProductWithCategory, tiers?: DiscountTier[], unit?: ProductUnit | null) => void
   removeItem: (productId: number) => void
   updateQty: (productId: number, qty: number) => void
   clearCart: () => void
@@ -28,6 +27,13 @@ interface CartStore extends CartState {
   setPpnPersen: (persen: number) => void
   setMetodeBayar: (metode: MetodeBayar) => void
   setUangDiterima: (amount: number) => void
+  restoreCart: (payload: {
+    items: CartItem[]
+    diskon_persen?: number
+    use_ppn?: boolean
+    ppn_persen?: number
+    metode_bayar?: MetodeBayar
+  }) => void
 }
 
 function calculateCartState(state: Pick<CartStore, 'items' | 'diskon_persen' | 'use_ppn' | 'ppn_persen' | 'uang_diterima'>) {
@@ -36,8 +42,7 @@ function calculateCartState(state: Pick<CartStore, 'items' | 'diskon_persen' | '
   const taxableAmount = Math.max(subtotal - diskonAmount, 0)
   const ppnAmount = state.use_ppn ? Math.round(taxableAmount * (state.ppn_persen / 100)) : 0
   const rawTotal = taxableAmount + ppnAmount
-  const hasAnyDiscount = state.diskon_persen > 0 || state.items.some((item) => item.diskon_item_persen > 0)
-  const total = roundSubtotal(rawTotal, hasAnyDiscount)
+  const total = roundSubtotal(rawTotal)
   const kembalian = Math.max(state.uang_diterima - total, 0)
 
   return {
@@ -52,23 +57,31 @@ function calculateCartState(state: Pick<CartStore, 'items' | 'diskon_persen' | '
 function mapProductToCartItem(
   product: ProductWithCategory,
   tiers: DiscountTier[] = [],
+  unit?: ProductUnit | null,
 ): CartItem {
-  const harga = Number(product.harga_jual ?? 0)
+  const rasio = Number(unit?.rasio ?? 1)
+  const harga = unit ? Number(unit.harga_jual) : Number(product.harga_jual ?? 0)
   const diskonProduk = Number(product.diskon_produk_persen ?? 0)
   const diskon = getEffectiveDiscount(1, tiers, diskonProduk)
+  const stokDasar = Number(product.stok ?? 0)
+  const stokTersedia = rasio > 1 ? Math.floor(stokDasar / rasio) : stokDasar
+  const namaLabel = unit ? `${product.nama ?? 'Produk'} (${unit.nama_satuan})` : (product.nama ?? 'Produk')
+
   return {
     product_id: product.id ?? 0,
-    sku: product.sku,
-    nama_produk: product.nama ?? 'Produk',
+    sku: unit?.barcode || product.sku,
+    nama_produk: namaLabel,
     harga_satuan: harga,
     qty: 1,
-    subtotal: roundSubtotal(harga * (1 - diskon / 100), diskon > 0),
-    stok_tersedia: Number(product.stok ?? 0),
-    satuan: product.satuan ?? 'pcs',
+    subtotal: roundSubtotal(harga * (1 - diskon / 100)),
+    stok_tersedia: stokTersedia,
+    satuan: unit ? unit.nama_satuan : (product.satuan ?? 'pcs'),
     foto_url: product.foto_url,
     discount_tiers: tiers,
     diskon_produk_persen: diskonProduk,
     diskon_item_persen: diskon,
+    rasio,
+    unit_id: unit?.id,
   }
 }
 
@@ -97,7 +110,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
   kembalian: 0,
   ppn_persen: 0,
 
-  addItem: (product, tiers = []) => {
+  addItem: (product, tiers = [], unit = null) => {
     const currentState = get()
     const productId = product.id ?? 0
 
@@ -105,13 +118,17 @@ export const useCartStore = create<CartStore>((set, get) => ({
       throw new Error('Produk tidak valid')
     }
 
-    const stokTersedia = Number(product.stok ?? 0)
+    const rasio = Number(unit?.rasio ?? 1)
+    const stokTersedia = rasio > 1 ? Math.floor(Number(product.stok ?? 0) / rasio) : Number(product.stok ?? 0)
 
     if (stokTersedia <= 0) {
       throw new Error(`Stok ${product.nama ?? 'produk'} sudah habis`)
     }
 
-    const existingItem = currentState.items.find((item) => item.product_id === productId)
+    // Unik berdasarkan product_id + unit_id jika ada satuan
+    const existingItem = currentState.items.find(
+      (item) => (unit ? item.product_id === productId && item.unit_id === unit.id : item.product_id === productId && !item.unit_id),
+    )
 
     if (existingItem) {
       if (existingItem.qty >= existingItem.stok_tersedia) {
@@ -121,12 +138,12 @@ export const useCartStore = create<CartStore>((set, get) => ({
       const newQty = existingItem.qty + 1
       const newDiskon = getEffectiveDiscount(newQty, existingItem.discount_tiers, existingItem.diskon_produk_persen)
       const nextItems = currentState.items.map((item) =>
-        item.product_id === productId
+        (unit ? item.product_id === productId && item.unit_id === unit.id : item.product_id === productId && !item.unit_id)
           ? {
               ...item,
               qty: newQty,
               diskon_item_persen: newDiskon,
-              subtotal: roundSubtotal(newQty * item.harga_satuan * (1 - newDiskon / 100), newDiskon > 0),
+              subtotal: roundSubtotal(newQty * item.harga_satuan * (1 - newDiskon / 100)),
             }
           : item,
       )
@@ -135,7 +152,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
       return
     }
 
-    const nextItems = [...currentState.items, mapProductToCartItem(product, tiers)]
+    const nextItems = [...currentState.items, mapProductToCartItem(product, tiers, unit)]
     set(withRecalculatedState({ items: nextItems }, currentState))
   },
 
@@ -170,7 +187,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
             ...item,
             qty,
             diskon_item_persen: newDiskon,
-            subtotal: roundSubtotal(qty * item.harga_satuan * (1 - newDiskon / 100), newDiskon > 0),
+            subtotal: roundSubtotal(qty * item.harga_satuan * (1 - newDiskon / 100)),
           }
         : item,
     )
@@ -224,5 +241,25 @@ export const useCartStore = create<CartStore>((set, get) => ({
     const currentState = get()
     const normalizedValue = Number.isFinite(amount) ? Math.max(amount, 0) : 0
     set(withRecalculatedState({ uang_diterima: normalizedValue }, currentState))
+  },
+
+  restoreCart: (payload) => {
+    const currentState = get()
+    const newItems = payload.items || []
+    const newDiskon = payload.diskon_persen ?? 0
+    const newPpn = payload.use_ppn ?? false
+    const newPpnPersen = payload.ppn_persen ?? currentState.ppn_persen
+    const newMetode = payload.metode_bayar ?? 'tunai'
+
+    const partial = {
+      items: newItems,
+      diskon_persen: newDiskon,
+      use_ppn: newPpn,
+      ppn_persen: newPpnPersen,
+      metode_bayar: newMetode,
+      uang_diterima: 0,
+    }
+
+    set(withRecalculatedState(partial, currentState))
   },
 }))

@@ -36,7 +36,7 @@ import type {
 import type { TransactionWithKasir } from '../types/database'
 import { cn } from '../utils/cn'
 
-const donutColors = ['#0a7c72', '#a86b00', '#b45f36', '#d9dadc']
+const donutColors = ['#2563eb', '#a86b00', '#b45f36', '#d9dadc']
 
 function formatCompactCurrency(value: number) {
   if (value >= 1_000_000) {
@@ -83,7 +83,7 @@ function getDeltaTone(value: number | null) {
   if (value > 0) {
     return {
       background: '#dff7f2',
-      color: '#0a7c72',
+      color: '#2563eb',
     }
   }
 
@@ -102,7 +102,7 @@ function notificationToneClasses(tone: DashboardNotification['tone']) {
     return 'border-[#ffddb8] bg-[#fff8ef]'
   }
 
-  return 'border-[#dff2ef] bg-[#f4fffc]'
+  return 'border-[#dbeafe] bg-[#eff6ff]'
 }
 
 function formatTransactionTime(value: string | null) {
@@ -190,7 +190,7 @@ export function DashboardPage() {
           statsPromise,
           changesPromise,
           getSalesByDateRange(dateFrom, dateTo),
-          getSalesByCategory(`${dateFrom}T00:00:00`, `${dateTo}T23:59:59`),
+          getSalesByCategory(dateFrom, dateTo),
           getLatestTransactions(5),
           getDashboardNotifications(),
         ])
@@ -358,7 +358,7 @@ export function DashboardPage() {
                 <div className="absolute right-0 top-[calc(100%+12px)] z-30 w-[min(360px,calc(100vw-2rem))] rounded-[20px] border border-[#eef1f1] bg-white p-4 shadow-[0_24px_60px_rgba(15,23,42,0.16)]">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-extrabold uppercase tracking-[0.12em] text-[#0a7c72]">
+                      <p className="text-sm font-extrabold uppercase tracking-[0.12em] text-[#2563eb]">
                         Notifikasi
                       </p>
                       <p className="mt-1 text-xs font-medium text-[#8b9895]">
@@ -407,7 +407,7 @@ export function DashboardPage() {
               <p className="text-sm font-bold text-[#191c1e]">{user?.nama ?? 'Admin Toko'}</p>
               <p className="text-[11px] font-medium capitalize text-[#8b9895]">{user?.role ?? 'kasir'}</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0a7c72] text-white">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb] text-white">
               <span className="material-symbols-outlined text-[20px]">account_circle</span>
             </div>
           </div>
@@ -415,7 +415,7 @@ export function DashboardPage() {
 
         <div className="space-y-6 bg-[#f7f9f9] px-4 py-4 sm:px-6 sm:py-6">
           <section className="md:hidden">
-            <div className="rounded-[22px] bg-[linear-gradient(135deg,#0a7c72_0%,#0c5f58_100%)] p-4 text-white shadow-[0_16px_32px_rgba(10,124,114,0.18)]">
+            <div className="rounded-[22px] bg-[linear-gradient(135deg,#2563eb_0%,#1d4ed8_100%)] p-4 text-white shadow-[0_16px_32px_rgba(37,99,235,0.22)]">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/70">
@@ -488,7 +488,7 @@ export function DashboardPage() {
                   className={cn(
                     'rounded-[10px] px-4 py-2 text-sm transition',
                     dateFilter === 'hari_ini'
-                      ? 'bg-[#f4fffc] font-bold text-[#0a7c72]'
+                      ? 'bg-[#eff6ff] font-bold text-[#2563eb]'
                       : 'font-semibold text-[#7d8987] hover:bg-[#f8f9fb]',
                   )}
                 >
@@ -499,7 +499,7 @@ export function DashboardPage() {
                   className={cn(
                     'rounded-[10px] px-4 py-2 text-sm transition',
                     dateFilter === 'minggu_ini'
-                      ? 'bg-[#f4fffc] font-bold text-[#0a7c72]'
+                      ? 'bg-[#eff6ff] font-bold text-[#2563eb]'
                       : 'font-semibold text-[#7d8987] hover:bg-[#f8f9fb]',
                   )}
                 >
@@ -510,7 +510,7 @@ export function DashboardPage() {
                   className={cn(
                     'rounded-[10px] px-4 py-2 text-sm transition',
                     dateFilter === 'bulan_ini'
-                      ? 'bg-[#f4fffc] font-bold text-[#0a7c72]'
+                      ? 'bg-[#eff6ff] font-bold text-[#2563eb]'
                       : 'font-semibold text-[#7d8987] hover:bg-[#f8f9fb]',
                   )}
                 >
@@ -521,7 +521,7 @@ export function DashboardPage() {
                   className={cn(
                     'flex items-center gap-2 rounded-[10px] px-4 py-2 text-sm transition',
                     dateFilter === 'custom'
-                      ? 'bg-[#f4fffc] font-bold text-[#0a7c72]'
+                      ? 'bg-[#eff6ff] font-bold text-[#2563eb]'
                       : 'font-semibold text-[#7d8987] hover:bg-[#f8f9fb]',
                   )}
                 >
@@ -538,7 +538,7 @@ export function DashboardPage() {
                     onChange={(e) =>
                       setCustomDateRange((prev) => ({ ...prev, from: e.target.value }))
                     }
-                    className="rounded-[8px] border border-[#eef1f1] bg-[#f8f9fb] px-3 py-1.5 text-sm font-medium text-[#2e3132] outline-none focus:border-[#0a7c72] focus:bg-white"
+                    className="rounded-[8px] border border-[#eef1f1] bg-[#f8f9fb] px-3 py-1.5 text-sm font-medium text-[#2e3132] outline-none focus:border-[#2563eb] focus:bg-white"
                   />
                   <span className="text-sm font-medium text-[#7d8987]">s/d</span>
                   <input
@@ -547,7 +547,7 @@ export function DashboardPage() {
                     onChange={(e) =>
                       setCustomDateRange((prev) => ({ ...prev, to: e.target.value }))
                     }
-                    className="rounded-[8px] border border-[#eef1f1] bg-[#f8f9fb] px-3 py-1.5 text-sm font-medium text-[#2e3132] outline-none focus:border-[#0a7c72] focus:bg-white"
+                    className="rounded-[8px] border border-[#eef1f1] bg-[#f8f9fb] px-3 py-1.5 text-sm font-medium text-[#2e3132] outline-none focus:border-[#2563eb] focus:bg-white"
                   />
                 </div>
               )}
@@ -569,7 +569,7 @@ export function DashboardPage() {
                 <div className="flex items-start justify-between">
                   <div
                     className="flex h-10 w-10 items-center justify-center rounded-[10px]"
-                    style={{ backgroundColor: `${card.accent}33`, color: '#0a7c72' }}
+                    style={{ backgroundColor: `${card.accent}33`, color: '#2563eb' }}
                   >
                     <span className="material-symbols-outlined text-[20px]">{card.icon}</span>
                   </div>
@@ -600,13 +600,13 @@ export function DashboardPage() {
             <article className="rounded-[18px] bg-white p-5 shadow-[0_6px_24px_rgba(15,23,42,0.04)]">
               <div className="flex items-center justify-between">
                 <h2 className="flex items-center gap-2 text-[15px] font-extrabold text-[#2e3132]">
-                  <span className="material-symbols-outlined text-[20px] text-[#0a7c72]">
+                  <span className="material-symbols-outlined text-[20px] text-[#2563eb]">
                     bar_chart
                   </span>
                   Penjualan per Hari (Mingguan)
                 </h2>
                 <div className="flex items-center gap-2 text-xs font-medium text-[#8b9895]">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#0a7c72]" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#2563eb]" />
                   Revenue
                 </div>
               </div>
@@ -628,7 +628,7 @@ export function DashboardPage() {
                       />
                       <YAxis hide />
                       <Tooltip
-                        cursor={{ fill: 'rgba(10,124,114,0.05)' }}
+                        cursor={{ fill: 'rgba(37,99,235,0.05)' }}
                         contentStyle={{
                           border: 'none',
                           borderRadius: 12,
@@ -645,7 +645,7 @@ export function DashboardPage() {
                         {salesTrend.map((item, index) => (
                           <Cell
                             key={item.tanggal}
-                            fill={index === salesTrend.length - 1 ? '#0a7c72' : '#dff2ef'}
+                            fill={index === salesTrend.length - 1 ? '#2563eb' : '#dbeafe'}
                           />
                         ))}
                       </Bar>
@@ -740,7 +740,7 @@ export function DashboardPage() {
           <section className="rounded-[18px] bg-white shadow-[0_6px_24px_rgba(15,23,42,0.04)]">
             <div className="flex items-center justify-between border-b border-[#eef1f1] px-5 py-4">
               <h2 className="text-[16px] font-extrabold text-[#2e3132]">Transaksi Terbaru</h2>
-              <Link to="/laporan" className="text-sm font-bold text-[#0a7c72]">
+              <Link to="/laporan" className="text-sm font-bold text-[#2563eb]">
                 Lihat Semua
               </Link>
             </div>
@@ -775,7 +775,7 @@ export function DashboardPage() {
                   ) : latestTransactions.length > 0 ? (
                     latestTransactions.map((item) => (
                       <tr key={item.id} className="border-t border-[#eef1f1]">
-                        <td className="px-5 py-4 text-sm font-extrabold text-[#0a7c72]">
+                        <td className="px-5 py-4 text-sm font-extrabold text-[#2563eb]">
                           #{item.nomor_nota ?? '-'}
                         </td>
                         <td className="px-5 py-4 text-sm font-medium text-[#6f7b79]">
@@ -796,7 +796,7 @@ export function DashboardPage() {
                               'rounded-full px-3 py-1 text-[10px] font-extrabold uppercase',
                               item.payment_status === 'menunggu_konfirmasi'
                                 ? 'bg-[#fff8ef] text-[#ba5a2b]'
-                                : 'bg-[#ccfaf1] text-[#0a7c72]',
+                                : 'bg-[#dcfce7] text-[#16a34a]',
                             )}
                           >
                             {item.payment_status === 'menunggu_konfirmasi' ? 'Menunggu' : 'Lunas'}
@@ -831,7 +831,7 @@ export function DashboardPage() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-[15px] font-extrabold text-[#0a7c72]">
+                        <p className="truncate text-[15px] font-extrabold text-[#2563eb]">
                           #{item.nomor_nota ?? '-'}
                         </p>
                         <p className="mt-1 text-xs font-medium text-[#8b9895]">
@@ -843,7 +843,7 @@ export function DashboardPage() {
                           'rounded-full px-3 py-1 text-[10px] font-extrabold uppercase',
                           item.payment_status === 'menunggu_konfirmasi'
                             ? 'bg-[#fff8ef] text-[#ba5a2b]'
-                            : 'bg-[#ccfaf1] text-[#0a7c72]',
+                            : 'bg-[#dcfce7] text-[#16a34a]',
                         )}
                       >
                         {item.payment_status === 'menunggu_konfirmasi' ? 'Menunggu' : 'Lunas'}

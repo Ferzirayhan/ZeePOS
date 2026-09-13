@@ -15,6 +15,8 @@ interface ReceiptModalProps {
   items: TransactionItem[]
   settings: Record<string, string>
   cashier: Profile | null
+  onThermalPrint?: () => void
+  printingThermal?: boolean
 }
 
 export function ReceiptModal({
@@ -25,6 +27,8 @@ export function ReceiptModal({
   items,
   settings,
   cashier,
+  onThermalPrint,
+  printingThermal = false,
 }: ReceiptModalProps) {
   const printRef = useRef<HTMLDivElement>(null)
 
@@ -90,10 +94,10 @@ export function ReceiptModal({
       <div className="space-y-6">
         <div className="flex flex-col items-center text-center">
           <div className={isPaid
-            ? 'flex h-20 w-20 items-center justify-center rounded-full bg-[#dff2ef]'
+            ? 'flex h-20 w-20 items-center justify-center rounded-full bg-[#dbeafe]'
             : 'flex h-20 w-20 items-center justify-center rounded-full bg-[#fff5e8]'}>
             <span className={isPaid
-              ? 'material-symbols-outlined text-[42px] text-[#0a7c72]'
+              ? 'material-symbols-outlined text-[42px] text-[#2563eb]'
               : 'material-symbols-outlined text-[42px] text-[#855300]'}>
               {isPaid ? 'check' : 'schedule'}
             </span>
@@ -116,7 +120,7 @@ export function ReceiptModal({
             <div className="flex items-center justify-between">
               <span className="font-medium text-[#6d7a77]">Status Pembayaran</span>
               <span className={isPaid
-                ? 'rounded-full bg-[#ccfaf1] px-3 py-1 text-[10px] font-extrabold uppercase text-[#0a7c72]'
+                ? 'rounded-full bg-[#ccfaf1] px-3 py-1 text-[10px] font-extrabold uppercase text-[#2563eb]'
                 : 'rounded-full bg-[#fff5e8] px-3 py-1 text-[10px] font-extrabold uppercase text-[#855300]'}>
                 {transaction.payment_status.replaceAll('_', ' ')}
               </span>
@@ -133,9 +137,9 @@ export function ReceiptModal({
               />
             </div>
             <div className="flex items-center justify-between">
-              <span className="font-medium text-[#0a7c72]">Kembalian</span>
+              <span className="font-medium text-[#2563eb]">Kembalian</span>
               <CurrencyDisplay
-                className="font-extrabold text-[#0a7c72]"
+                className="font-extrabold text-[#2563eb]"
                 value={Number(transaction.kembalian ?? 0)}
               />
             </div>
@@ -158,13 +162,23 @@ export function ReceiptModal({
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-4">
+          {onThermalPrint && (
+            <Button
+              className="rounded-[14px] bg-[#16a34a] hover:bg-[#15803d] text-white flex items-center justify-center gap-1.5"
+              onClick={onThermalPrint}
+              disabled={!isPaid || printingThermal}
+            >
+              <span className="material-symbols-outlined text-base">print</span>
+              <span>{printingThermal ? 'Mencetak...' : 'Thermal USB'}</span>
+            </Button>
+          )}
           <Button
             className="rounded-[14px]"
             onClick={() => void handlePrint()}
             disabled={!isPaid}
           >
-            Cetak Struk
+            Cetak Browser
           </Button>
           <Button
             variant="secondary"
@@ -172,7 +186,7 @@ export function ReceiptModal({
             onClick={() => window.open(buildWhatsAppUrl(whatsappText), '_blank')}
             disabled={!isPaid}
           >
-            Kirim WhatsApp
+            Kirim WA
           </Button>
           <Button variant="ghost" className="rounded-[14px]" onClick={onNewTransaction}>
             Transaksi Baru

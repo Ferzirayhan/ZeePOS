@@ -14,20 +14,20 @@ interface ButtonProps
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand-gradient text-on-primary shadow-float hover:brightness-105 active:scale-[0.99]',
+    'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]',
   secondary:
-    'bg-surface-container-high text-on-surface hover:bg-surface-container-highest',
+    'bg-slate-100 text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97] border border-slate-200/60',
   ghost:
-    'bg-transparent text-primary hover:bg-primary/10',
+    'bg-transparent text-blue-600 hover:bg-blue-50/80 active:bg-blue-100/60 active:scale-[0.97]',
   danger:
-    'bg-error text-on-error shadow-sm hover:brightness-105 active:scale-[0.99]',
+    'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-md shadow-red-500/20 hover:from-red-700 hover:to-rose-700 hover:shadow-lg hover:shadow-red-500/30 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]',
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'min-h-[2.5rem] px-3.5 py-2 text-sm',
-  md: 'min-h-[2.875rem] px-4 py-2.5 text-sm',
-  lg: 'min-h-[3.25rem] px-5 py-3 text-base',
-  xl: 'min-h-[3.75rem] px-6 py-4 text-base',
+  sm: 'min-h-[2.25rem] px-3.5 py-1.5 text-xs rounded-xl font-bold',
+  md: 'min-h-[2.625rem] px-4 py-2.5 text-sm rounded-2xl font-bold',
+  lg: 'min-h-[3rem] px-5 py-3 text-base rounded-2xl font-black',
+  xl: 'min-h-[3.5rem] px-6 py-3.5 text-base rounded-2xl font-black tracking-wide',
 }
 
 export function Button({
@@ -46,7 +46,7 @@ export function Button({
       type={type}
       disabled={disabled || loading}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-2xl font-bold transition duration-300 ease-standard disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex items-center justify-center gap-2 font-sans transition-all duration-200 ease-out select-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none disabled:active:scale-100',
         variantClasses[variant],
         sizeClasses[size],
         fullWidth && 'w-full',

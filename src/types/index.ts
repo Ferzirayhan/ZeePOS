@@ -23,6 +23,8 @@ export interface CartItem {
   discount_tiers: DiscountTier[]
   diskon_produk_persen: number
   diskon_item_persen: number
+  rasio?: number
+  unit_id?: number
 }
 
 export interface CartState {

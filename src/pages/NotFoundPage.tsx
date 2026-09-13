@@ -16,7 +16,7 @@ export function NotFoundPage() {
         <div className="mt-6 flex items-center justify-center gap-3">
           <Link
             to="/dashboard"
-            className="rounded-2xl bg-teal-700 px-5 py-3 text-sm font-bold text-white"
+            className="rounded-2xl bg-blue-700 px-5 py-3 text-sm font-bold text-white"
           >
             Dashboard
           </Link>

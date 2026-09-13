@@ -93,7 +93,7 @@ export function AuditPage() {
                   type="date"
                   value={dateFrom}
                   onChange={(event) => setDateFrom(event.target.value)}
-                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#cde9e4] focus:ring-2 focus:ring-[#0a7c72]/10"
+                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#bfdbfe] focus:ring-2 focus:ring-[#2563eb]/10"
                 />
               </div>
               <div>
@@ -104,7 +104,7 @@ export function AuditPage() {
                   type="date"
                   value={dateTo}
                   onChange={(event) => setDateTo(event.target.value)}
-                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#cde9e4] focus:ring-2 focus:ring-[#0a7c72]/10"
+                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#bfdbfe] focus:ring-2 focus:ring-[#2563eb]/10"
                 />
               </div>
               <div>
@@ -114,7 +114,7 @@ export function AuditPage() {
                 <select
                   value={action}
                   onChange={(event) => setAction(event.target.value)}
-                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#cde9e4] focus:ring-2 focus:ring-[#0a7c72]/10"
+                  className="mt-2 h-12 w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 text-sm font-semibold text-[#1b1e20] outline-none focus:border-[#bfdbfe] focus:ring-2 focus:ring-[#2563eb]/10"
                 >
                   <option value="all">Semua Aktivitas</option>
                   <option value="transaction_created">Transaksi Dibuat</option>
@@ -145,7 +145,7 @@ export function AuditPage() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-[#e7f8f6] px-3 py-1 text-[10px] font-extrabold uppercase text-[#0a7c72]">
+                          <span className="rounded-full bg-[#eff6ff] px-3 py-1 text-[10px] font-extrabold uppercase text-[#2563eb]">
                             {getActionLabel(log.action)}
                           </span>
                           <span className="text-xs font-medium text-[#8b9895]">

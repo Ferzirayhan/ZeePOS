@@ -27,7 +27,7 @@ export function PWAInstallPrompt() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-[130] w-full max-w-sm rounded-[20px] border border-[#dff2ef] bg-white p-4 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+    <div className="fixed bottom-4 right-4 z-[130] w-full max-w-sm rounded-[20px] border border-[#dbeafe] bg-white p-4 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
       <p className="text-sm font-extrabold text-[#1b1e20]">Install aplikasi POS</p>
       <p className="mt-1 text-sm text-[#52627d]">
         Tambahkan ke desktop atau home screen supaya terasa seperti aplikasi kasir.
@@ -47,7 +47,7 @@ export function PWAInstallPrompt() {
             await deferredPrompt.userChoice
             setDeferredPrompt(null)
           }}
-          className="rounded-[12px] bg-[#0a7c72] px-4 py-2 text-sm font-bold text-white"
+          className="rounded-[12px] bg-[#2563eb] px-4 py-2 text-sm font-bold text-white"
         >
           Install
         </button>

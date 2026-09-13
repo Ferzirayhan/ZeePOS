@@ -1,6 +1,6 @@
 export type UserRole = 'admin' | 'kasir'
 export type SatuanType = 'pcs' | 'lusin' | 'kg' | 'meter' | 'pack' | 'gram' | 'dus' | 'ikat' | 'bal' | 'roll' | 'batang' | 'lembar'
-export type MetodeBayar = 'tunai' | 'transfer' | 'qris'
+export type MetodeBayar = 'tunai' | 'transfer' | 'qris' | 'hutang'
 export type StatusTransaksi = 'selesai' | 'batal'
 export type PaymentStatus = 'menunggu_konfirmasi' | 'dibayar' | 'gagal'
 export type JenisAdjustment = 'masuk' | 'keluar' | 'koreksi' | 'terjual'
@@ -9,6 +9,42 @@ export type StokStatus = 'aman' | 'menipis' | 'habis'
 export interface Database {
   public: {
     Tables: {
+      tenants: {
+        Row: {
+          id: string
+          nama: string
+          slug: string
+          is_active: boolean | null
+          trial_ends_at: string | null
+          subscription_status: 'trial' | 'active' | 'expired' | 'grace_period' | null
+          subscription_plan: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          nama: string
+          slug: string
+          is_active?: boolean | null
+          trial_ends_at?: string | null
+          subscription_status?: 'trial' | 'active' | 'expired' | 'grace_period' | null
+          subscription_plan?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          nama?: string
+          slug?: string
+          is_active?: boolean | null
+          trial_ends_at?: string | null
+          subscription_status?: 'trial' | 'active' | 'expired' | 'grace_period' | null
+          subscription_plan?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           id: string
@@ -378,6 +414,216 @@ export interface Database {
         }
         Relationships: []
       }
+      cash_shifts: {
+        Row: {
+          id: string
+          tenant_id: string | null
+          kasir_id: string
+          opened_at: string
+          closed_at: string | null
+          modal_awal: number
+          total_penjualan_tunai: number
+          total_penjualan_non_tunai: number
+          pengeluaran_kas: number
+          uang_fisik_akhir: number | null
+          selisih: number | null
+          status: 'open' | 'closed'
+          catatan: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id?: string | null
+          kasir_id: string
+          opened_at?: string
+          closed_at?: string | null
+          modal_awal?: number
+          total_penjualan_tunai?: number
+          total_penjualan_non_tunai?: number
+          pengeluaran_kas?: number
+          uang_fisik_akhir?: number | null
+          selisih?: number | null
+          status?: 'open' | 'closed'
+          catatan?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string | null
+          kasir_id?: string
+          opened_at?: string
+          closed_at?: string | null
+          modal_awal?: number
+          total_penjualan_tunai?: number
+          total_penjualan_non_tunai?: number
+          pengeluaran_kas?: number
+          uang_fisik_akhir?: number | null
+          selisih?: number | null
+          status?: 'open' | 'closed'
+          catatan?: string | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      product_units: {
+        Row: {
+          id: number
+          tenant_id: string
+          product_id: number
+          nama_satuan: string
+          rasio: number
+          barcode: string | null
+          harga_beli: number
+          harga_jual: number
+          is_default: boolean
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          tenant_id?: string
+          product_id: number
+          nama_satuan: string
+          rasio?: number
+          barcode?: string | null
+          harga_beli?: number
+          harga_jual: number
+          is_default?: boolean
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          tenant_id?: string
+          product_id?: number
+          nama_satuan?: string
+          rasio?: number
+          barcode?: string | null
+          harga_beli?: number
+          harga_jual?: number
+          is_default?: boolean
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          id: number
+          tenant_id: string
+          nama: string
+          telepon: string | null
+          alamat: string | null
+          total_hutang: number
+          catatan: string | null
+          is_active: boolean
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: number
+          tenant_id?: string
+          nama: string
+          telepon?: string | null
+          alamat?: string | null
+          total_hutang?: number
+          catatan?: string | null
+          is_active?: boolean
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: number
+          tenant_id?: string
+          nama?: string
+          telepon?: string | null
+          alamat?: string | null
+          total_hutang?: number
+          catatan?: string | null
+          is_active?: boolean
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      receivables: {
+        Row: {
+          id: number
+          tenant_id: string
+          customer_id: number
+          transaction_id: number | null
+          nomor_nota: string
+          total_tagihan: number
+          jumlah_dibayar: number
+          sisa_hutang: number
+          status: 'belum_lunas' | 'sebagian' | 'lunas'
+          jatuh_tempo: string | null
+          catatan: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: number
+          tenant_id?: string
+          customer_id: number
+          transaction_id?: number | null
+          nomor_nota: string
+          total_tagihan: number
+          jumlah_dibayar?: number
+          sisa_hutang: number
+          status?: 'belum_lunas' | 'sebagian' | 'lunas'
+          jatuh_tempo?: string | null
+          catatan?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: number
+          tenant_id?: string
+          customer_id?: number
+          transaction_id?: number | null
+          nomor_nota?: string
+          total_tagihan?: number
+          jumlah_dibayar?: number
+          sisa_hutang?: number
+          status?: 'belum_lunas' | 'sebagian' | 'lunas'
+          jatuh_tempo?: string | null
+          catatan?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      receivable_payments: {
+        Row: {
+          id: number
+          tenant_id: string
+          receivable_id: number
+          jumlah: number
+          metode_bayar: string
+          catatan: string | null
+          created_by: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          tenant_id?: string
+          receivable_id: number
+          jumlah: number
+          metode_bayar?: string
+          catatan?: string | null
+          created_by?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          tenant_id?: string
+          receivable_id?: number
+          jumlah?: number
+          metode_bayar?: string
+          catatan?: string | null
+          created_by?: string | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       products_with_category: {
@@ -460,6 +706,23 @@ export interface Database {
           tenant_id: string
           profile_id: string
         }
+      }
+      create_staff_member: {
+        Args: {
+          p_email: string
+          p_password: string
+          p_nama: string
+          p_username: string
+          p_role?: UserRole
+        }
+        Returns: Record<string, unknown>
+      }
+      reset_staff_password: {
+        Args: {
+          p_user_id: string
+          p_new_password: string
+        }
+        Returns: Record<string, unknown>
       }
       create_transaction_atomic: {
         Args: {
@@ -625,7 +888,74 @@ export type Transaction = Database['public']['Tables']['transactions']['Row']
 export type TransactionItem = Database['public']['Tables']['transaction_items']['Row']
 export type StockAdjustment = Database['public']['Tables']['stock_adjustments']['Row']
 export type StoreSetting = Database['public']['Tables']['store_settings']['Row']
+export type CashShift = Database['public']['Tables']['cash_shifts']['Row']
+
+export interface Tenant {
+  id: string
+  nama: string
+  slug: string
+  is_active: boolean | null
+  trial_ends_at: string | null
+  subscription_status: 'trial' | 'active' | 'expired' | 'grace_period' | null
+  subscription_plan: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
 export type ProductWithCategory =
   Database['public']['Views']['products_with_category']['Row']
 export type TransactionWithKasir =
   Database['public']['Views']['transactions_with_kasir']['Row']
+
+export interface ProductUnit {
+  id: number
+  tenant_id: string
+  product_id: number
+  nama_satuan: string
+  rasio: number
+  barcode?: string | null
+  harga_beli: number
+  harga_jual: number
+  is_default: boolean
+  created_at?: string
+}
+
+export interface Customer {
+  id: number
+  tenant_id: string
+  nama: string
+  telepon?: string | null
+  alamat?: string | null
+  total_hutang: number
+  catatan?: string | null
+  is_active: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface Receivable {
+  id: number
+  tenant_id: string
+  customer_id: number
+  transaction_id?: number | null
+  nomor_nota: string
+  total_tagihan: number
+  jumlah_dibayar: number
+  sisa_hutang: number
+  status: 'belum_lunas' | 'sebagian' | 'lunas'
+  jatuh_tempo?: string | null
+  catatan?: string | null
+  created_at?: string
+  customer?: Customer
+}
+
+export interface ReceivablePayment {
+  id: number
+  tenant_id: string
+  receivable_id: number
+  jumlah: number
+  metode_bayar: string
+  catatan?: string | null
+  created_by?: string | null
+  created_at?: string
+}

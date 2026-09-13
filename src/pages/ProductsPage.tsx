@@ -35,6 +35,7 @@ import { useUIStore } from '../stores/uiStore'
 import { useToastStore } from '../stores/toastStore'
 import type { Category, ProductWithCategory, SatuanType } from '../types/database'
 import { formatRupiah } from '../utils/currency'
+import { exportToExcel } from '../utils/export'
 import { cn } from '../utils/cn'
 
 const productSchema = z.object({
@@ -42,7 +43,7 @@ const productSchema = z.object({
   barcode: z.string().trim().optional(),
   nama: z.string().trim().min(2, 'Nama produk minimal 2 karakter'),
   deskripsi: z.string().trim().optional(),
-  category_id: z.coerce.number().min(1, 'Kategori wajib dipilih'),
+  category_id: z.coerce.number().optional().nullable(),
   satuan: z.enum(['pcs', 'lusin', 'kg', 'meter', 'pack', 'gram', 'dus', 'ikat', 'bal', 'roll', 'batang', 'lembar']),
   harga_beli: z.coerce.number().min(0, 'Harga beli tidak boleh negatif'),
   harga_jual: z.coerce.number().min(1, 'Harga jual wajib diisi'),
@@ -178,7 +179,7 @@ function PriceHistorySection({ productId }: { productId: number }) {
                       {item.keterangan ? ` · ${item.keterangan}` : ''}
                     </p>
                   </div>
-                  <span className="text-right text-xs font-bold text-[#0a7c72]">
+                  <span className="text-right text-xs font-bold text-[#2563eb]">
                     {item.harga_beli > 0
                       ? `Margin ${(((item.harga_jual - item.harga_beli) / item.harga_beli) * 100).toFixed(1)}%`
                       : ''}
@@ -370,7 +371,7 @@ function CategoryManager({ open, categories, onClose, onSaved }: CategoryManager
                   setSelectedCategory(null)
                   reset({ nama: '', deskripsi: '', is_active: true })
                 }}
-                className="rounded-[10px] bg-white px-3 py-2 text-xs font-bold text-[#0a7c72]"
+                className="rounded-[10px] bg-white px-3 py-2 text-xs font-bold text-[#2563eb]"
               >
                 Baru
               </button>
@@ -385,7 +386,7 @@ function CategoryManager({ open, categories, onClose, onSaved }: CategoryManager
                     className={cn(
                       'flex w-full items-center justify-between rounded-[14px] px-4 py-3 text-left',
                       selectedCategory?.id === category.id
-                        ? 'bg-[#e7f8f6] text-[#0a7c72]'
+                        ? 'bg-[#eff6ff] text-[#2563eb]'
                         : 'bg-white text-[#2e3132]',
                     )}
                   >
@@ -394,7 +395,7 @@ function CategoryManager({ open, categories, onClose, onSaved }: CategoryManager
                       className={cn(
                         'rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase',
                         category.is_active
-                          ? 'bg-[#ccfaf1] text-[#0a7c72]'
+                          ? 'bg-[#dcfce7] text-[#16a34a]'
                           : 'bg-[#edeef0] text-[#6d7a77]',
                       )}
                     >
@@ -417,7 +418,7 @@ function CategoryManager({ open, categories, onClose, onSaved }: CategoryManager
               </label>
               <input
                 type="text"
-                className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                 placeholder="Contoh: Ember & Baskom"
                 {...register('nama')}
               />
@@ -430,7 +431,7 @@ function CategoryManager({ open, categories, onClose, onSaved }: CategoryManager
               </label>
               <textarea
                 rows={4}
-                className="w-full rounded-[14px] border-none bg-[#eef0f3] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                className="w-full rounded-[14px] border-none bg-[#eef0f3] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                 placeholder="Deskripsi kategori opsional"
                 {...register('deskripsi')}
               />
@@ -463,7 +464,7 @@ function CategoryManager({ open, categories, onClose, onSaved }: CategoryManager
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-[14px] bg-[#0a7c72] px-6 py-3 font-bold text-white shadow-[0_12px_24px_rgba(10,124,114,0.22)] disabled:opacity-60"
+                className="rounded-[14px] bg-[#2563eb] px-6 py-3 font-bold text-white shadow-[0_12px_24px_rgba(37,99,235,0.22)] disabled:opacity-60"
               >
                 {submitting ? 'Menyimpan...' : selectedCategory ? 'Update Kategori' : 'Tambah Kategori'}
               </button>
@@ -567,10 +568,10 @@ function VariantSection({
         className="flex w-full items-center justify-between px-4 py-3 text-sm font-bold text-[#1b1e20]"
       >
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-[18px] text-[#0a7c72]">layers</span>
+          <span className="material-symbols-outlined text-[18px] text-[#2563eb]">layers</span>
           Varian Unit
           {variants.length > 0 && (
-            <span className="rounded-full bg-[#0a7c72] px-2 py-0.5 text-[10px] font-extrabold text-white">
+            <span className="rounded-full bg-[#2563eb] px-2 py-0.5 text-[10px] font-extrabold text-white">
               {variants.length}
             </span>
           )}
@@ -621,7 +622,7 @@ function VariantSection({
                       <select
                         value={form.satuan}
                         onChange={(e) => setForm((f) => ({ ...f, satuan: e.target.value }))}
-                        className="h-10 w-full rounded-[12px] border-none bg-[#eef0f3] px-3 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                        className="h-10 w-full rounded-[12px] border-none bg-[#eef0f3] px-3 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                       >
                         {satuanOptions.map((o) => (
                           <option key={o.value} value={o.value}>{o.label}</option>
@@ -632,7 +633,7 @@ function VariantSection({
                       <label className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#8b9895]">
                         Harga Beli
                         {ratio && (
-                          <span className="ml-1 text-[#0a7c72]">
+                          <span className="ml-1 text-[#2563eb]">
                             (×{ratio.toFixed(2)} dari induk)
                           </span>
                         )}
@@ -649,7 +650,7 @@ function VariantSection({
                             : form.harga_jual
                           setForm((f) => ({ ...f, harga_beli: beli, harga_jual: suggestedJual }))
                         }}
-                        className="h-10 w-full rounded-[12px] border-none bg-[#eef0f3] px-3 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                        className="h-10 w-full rounded-[12px] border-none bg-[#eef0f3] px-3 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                       />
                     </div>
                   </div>
@@ -661,7 +662,7 @@ function VariantSection({
                         min={1}
                         value={form.harga_jual || ''}
                         onChange={(e) => setForm((f) => ({ ...f, harga_jual: Number(e.target.value) }))}
-                        className="h-10 w-full rounded-[12px] border-none bg-[#eef0f3] px-3 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                        className="h-10 w-full rounded-[12px] border-none bg-[#eef0f3] px-3 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                       />
                     </div>
                     <div className="space-y-1">
@@ -671,7 +672,7 @@ function VariantSection({
                         min={0}
                         value={form.stok || ''}
                         onChange={(e) => setForm((f) => ({ ...f, stok: Number(e.target.value) }))}
-                        className="h-10 w-full rounded-[12px] border-none bg-[#eef0f3] px-3 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                        className="h-10 w-full rounded-[12px] border-none bg-[#eef0f3] px-3 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                       />
                     </div>
                   </div>
@@ -681,7 +682,7 @@ function VariantSection({
                       type="text"
                       value={form.sku ?? ''}
                       onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value || null }))}
-                      className="h-10 w-full rounded-[12px] border-none bg-[#eef0f3] px-3 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                      className="h-10 w-full rounded-[12px] border-none bg-[#eef0f3] px-3 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -696,7 +697,7 @@ function VariantSection({
                       type="button"
                       disabled={saving || !form.harga_jual}
                       onClick={() => void handleAddVariant()}
-                      className="flex-1 rounded-[12px] bg-[#0a7c72] py-2 text-sm font-bold text-white disabled:opacity-60"
+                      className="flex-1 rounded-[12px] bg-[#2563eb] py-2 text-sm font-bold text-white disabled:opacity-60"
                     >
                       {saving ? 'Menyimpan...' : 'Simpan Varian'}
                     </button>
@@ -706,7 +707,7 @@ function VariantSection({
                 <button
                   type="button"
                   onClick={() => setShowForm(true)}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-[12px] border border-dashed border-[#bdd4d0] py-2.5 text-sm font-bold text-[#0a7c72]"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-[12px] border border-dashed border-[#bfdbfe] py-2.5 text-sm font-bold text-[#2563eb]"
                 >
                   <span className="material-symbols-outlined text-[16px]">add</span>
                   Tambah Varian Unit
@@ -831,7 +832,7 @@ function ProductDrawer({
     }
   }, [photoFile])
 
-  const barcodeValue = watch('barcode') || watch('sku') || 'PRD-RATIH'
+  const barcodeValue = watch('barcode') || watch('sku') || 'PRD-ZEE'
   const watchedHargaBeli = Number(watch('harga_beli') ?? 0)
   const hasCategories = categories.length > 0
 
@@ -856,7 +857,10 @@ function ProductDrawer({
         barcode: values.barcode || null,
         nama: values.nama,
         deskripsi: values.deskripsi || null,
-        category_id: values.category_id,
+        category_id:
+          values.category_id && values.category_id > 0
+            ? values.category_id
+            : (categories[0]?.id ?? null),
         satuan: values.satuan,
         harga_beli: values.harga_beli,
         harga_jual: values.harga_jual,
@@ -920,7 +924,7 @@ function ProductDrawer({
         <form className="custom-scrollbar flex-1 overflow-y-auto px-6 py-6" onSubmit={handleSubmit(onSubmit)}>
           <div className="grid gap-6">
             <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-4">
-              <label className="flex h-[92px] cursor-pointer flex-col items-center justify-center rounded-[20px] border border-dashed border-[#bdd4d0] bg-[#f9fbfb] text-center text-[#75827f]">
+              <label className="flex h-[92px] cursor-pointer flex-col items-center justify-center rounded-[20px] border border-dashed border-[#bfdbfe] bg-[#f9fbfb] text-center text-[#75827f]">
                 {photoPreview ? (
                   <img src={photoPreview} alt="Preview produk" className="h-full w-full rounded-[20px] object-cover" />
                 ) : (
@@ -943,8 +947,8 @@ function ProductDrawer({
                 </label>
                 <input
                   type="text"
-                  placeholder="Contoh: Plastik Klip 5x8"
-                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  placeholder="Contoh: Kopi Susu Aren / Botol Minum / Beras 5kg"
+                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                   {...register('nama')}
                 />
                 {errors.nama ? <p className="text-sm text-[#ba1a1a]">{errors.nama.message}</p> : null}
@@ -958,7 +962,7 @@ function ProductDrawer({
                 </label>
                 <input
                   type="text"
-                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                   {...register('sku')}
                 />
               </div>
@@ -968,7 +972,7 @@ function ProductDrawer({
                 </label>
                 <input
                   type="text"
-                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                   {...register('barcode')}
                 />
               </div>
@@ -990,11 +994,40 @@ function ProductDrawer({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]">
-                  Kategori
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]">
+                    Kategori
+                  </label>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const nama = window.prompt('Masukkan nama kategori baru:')
+                      if (nama && nama.trim()) {
+                        try {
+                          const cat = await createCategory({ nama: nama.trim(), is_active: true })
+                          setValue('category_id', cat.id)
+                          pushToast({
+                            title: 'Kategori dibuat',
+                            description: `Kategori "${nama.trim()}" berhasil dibuat.`,
+                            variant: 'success',
+                          })
+                          await onSaved()
+                        } catch (err) {
+                          pushToast({
+                            title: 'Gagal membuat kategori',
+                            description: err instanceof Error ? err.message : 'Error membuat kategori.',
+                            variant: 'error',
+                          })
+                        }
+                      }
+                    }}
+                    className="text-[11px] font-bold text-[#2563eb] hover:underline"
+                  >
+                    + Kategori Baru
+                  </button>
+                </div>
                 <select
-                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                   {...register('category_id')}
                 >
                   <option value={0}>Pilih kategori</option>
@@ -1014,7 +1047,7 @@ function ProductDrawer({
                   Satuan
                 </label>
                 <select
-                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                   {...register('satuan')}
                 >
                   {satuanOptions.map((option) => (
@@ -1034,7 +1067,7 @@ function ProductDrawer({
                 <input
                   type="number"
                   min={0}
-                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                   {...register('harga_beli')}
                 />
               </div>
@@ -1045,7 +1078,7 @@ function ProductDrawer({
                 <input
                   type="number"
                   min={0}
-                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                   {...register('harga_jual')}
                 />
               </div>
@@ -1062,7 +1095,7 @@ function ProductDrawer({
                   max={99}
                   step={0.01}
                   placeholder="0 = tidak ada diskon"
-                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 pr-12 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 pr-12 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                   {...register('diskon_produk_persen')}
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#8b9895]">%</span>
@@ -1084,7 +1117,7 @@ function ProductDrawer({
                 className="flex w-full items-center justify-between px-4 py-3 text-sm font-bold text-[#1b1e20]"
               >
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px] text-[#0a7c72]">calculate</span>
+                  <span className="material-symbols-outlined text-[18px] text-[#2563eb]">calculate</span>
                   Kalkulator HPP
                 </div>
                 <span className="material-symbols-outlined text-[18px] text-[#8b9895]">
@@ -1109,12 +1142,12 @@ function ProductDrawer({
                       min={0}
                       value={ongkosKirim}
                       onChange={(e) => setOngkosKirim(Number(e.target.value))}
-                      className="h-8 w-32 rounded-[10px] border-none bg-white px-3 text-right text-sm font-bold outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                      className="h-8 w-32 rounded-[10px] border-none bg-white px-3 text-right text-sm font-bold outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                     />
                   </div>
                   <div className="flex items-center justify-between text-sm border-t border-[#eef1f1] pt-2">
                     <span className="font-bold text-[#1b1e20]">HPP</span>
-                    <span className="font-extrabold text-[#0a7c72]">
+                    <span className="font-extrabold text-[#2563eb]">
                       {hppTotal > 0
                         ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(hppTotal)
                         : '—'}
@@ -1137,7 +1170,7 @@ function ProductDrawer({
                             <button
                               type="button"
                               onClick={() => setValue('harga_jual', hargaJual)}
-                              className="rounded-[8px] bg-[#0a7c72] px-2 py-1 text-[10px] font-extrabold text-white"
+                              className="rounded-[8px] bg-[#2563eb] px-2 py-1 text-[10px] font-extrabold text-white"
                             >
                               Pakai
                             </button>
@@ -1154,13 +1187,13 @@ function ProductDrawer({
             <div className="rounded-[18px] border border-[#eef1f1] bg-[#f9fbfb] px-4 py-4">
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px] text-[#0a7c72]">local_offer</span>
+                  <span className="material-symbols-outlined text-[18px] text-[#2563eb]">local_offer</span>
                   <span className="text-sm font-bold text-[#1b1e20]">Diskon Kuantitas</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setDiscountTiers([...discountTiers, { min_qty: 0, diskon_persen: 0 }])}
-                  className="rounded-[10px] bg-[#e7f8f6] px-3 py-1.5 text-[11px] font-extrabold text-[#0a7c72]"
+                  className="rounded-[10px] bg-[#eff6ff] px-3 py-1.5 text-[11px] font-extrabold text-[#2563eb]"
                 >
                   + Tambah Tier
                 </button>
@@ -1192,7 +1225,7 @@ function ProductDrawer({
                           updated[index] = { ...updated[index], min_qty: Number(e.target.value) }
                           setDiscountTiers(updated)
                         }}
-                        className="h-10 w-full rounded-[12px] border-none bg-white px-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                        className="h-10 w-full rounded-[12px] border-none bg-white px-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                       />
                       <input
                         type="number"
@@ -1206,7 +1239,7 @@ function ProductDrawer({
                           updated[index] = { ...updated[index], diskon_persen: Number(e.target.value) }
                           setDiscountTiers(updated)
                         }}
-                        className="h-10 w-full rounded-[12px] border-none bg-white px-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                        className="h-10 w-full rounded-[12px] border-none bg-white px-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                       />
                       <button
                         type="button"
@@ -1233,7 +1266,7 @@ function ProductDrawer({
                 <input
                   type="number"
                   min={0}
-                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                   {...register('stok')}
                 />
               </div>
@@ -1244,7 +1277,7 @@ function ProductDrawer({
                 <input
                   type="number"
                   min={0}
-                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                   {...register('stok_minimum')}
                 />
               </div>
@@ -1256,7 +1289,7 @@ function ProductDrawer({
               </label>
               <textarea
                 rows={3}
-                className="w-full rounded-[14px] border-none bg-[#eef0f3] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                className="w-full rounded-[14px] border-none bg-[#eef0f3] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                 {...register('deskripsi')}
               />
             </div>
@@ -1274,7 +1307,7 @@ function ProductDrawer({
             <button
               type="submit"
               disabled={submitting || !hasCategories}
-              className="rounded-[14px] bg-[#0a7c72] px-6 py-3 font-bold text-white shadow-[0_12px_24px_rgba(10,124,114,0.22)] disabled:opacity-60"
+              className="rounded-[14px] bg-[#2563eb] px-6 py-3 font-bold text-white shadow-[0_12px_24px_rgba(37,99,235,0.22)] disabled:opacity-60"
             >
               {submitting ? 'Menyimpan...' : 'Simpan Produk'}
             </button>
@@ -1443,7 +1476,7 @@ export function ProductsPage() {
   }
 
   const statCards = [
-    { label: 'Total Produk', value: stats.totalProducts, color: 'border-[#0a7c72]' },
+    { label: 'Total Produk', value: stats.totalProducts, color: 'border-[#2563eb]' },
     { label: 'Kategori', value: stats.totalCategories, color: 'border-[#a86b00]' },
     { label: 'Stok Menipis', value: stats.lowStockProducts, color: 'border-[#d97706]' },
     { label: 'Produk Nonaktif', value: stats.inactiveProducts, color: 'border-[#b45f36]' },
@@ -1581,15 +1614,52 @@ export function ProductsPage() {
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Cari produk berdasarkan nama, SKU, atau barcode..."
-              className="h-11 w-full rounded-full border-none bg-[#f1f3f5] pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+              className="h-11 w-full rounded-full border-none bg-[#f1f3f5] pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
             />
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row xl:justify-end">
+          <div className="flex flex-wrap items-center gap-3 sm:flex-row xl:justify-end">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const allProducts = await getProducts()
+                  const rows = allProducts.map((p) => ({
+                    SKU: p.sku ?? '-',
+                    Barcode: p.barcode ?? '-',
+                    Nama: p.nama ?? '-',
+                    Kategori: p.category_nama ?? 'Tanpa Kategori',
+                    Satuan: p.satuan ?? 'pcs',
+                    'Harga Beli': Number(p.harga_beli ?? 0),
+                    'Harga Jual': Number(p.harga_jual ?? 0),
+                    Stok: Number(p.stok ?? 0),
+                    'Stok Minimum': Number(p.stok_minimum ?? 0),
+                    Status: p.is_active ? 'Aktif' : 'Nonaktif',
+                  }))
+                  exportToExcel(rows, `katalog-produk-${new Date().toISOString().slice(0, 10)}.xlsx`, 'Produk')
+                  pushToast({
+                    title: 'Export Berhasil',
+                    description: `${rows.length} produk diekspor ke Excel.`,
+                    variant: 'success',
+                  })
+                } catch (err) {
+                  pushToast({
+                    title: 'Export Gagal',
+                    description: err instanceof Error ? err.message : 'Terjadi kesalahan sistem',
+                    variant: 'error',
+                  })
+                }
+              }}
+              className="flex items-center justify-center gap-2 rounded-[14px] bg-white px-4 py-3 font-bold text-[#2563eb] shadow-[0_8px_18px_rgba(15,23,42,0.06)]"
+            >
+              <span className="material-symbols-outlined text-[18px]">download</span>
+              Export Excel
+            </button>
+
             <button
               type="button"
               onClick={() => setCategoryManagerOpen(true)}
-              className="flex items-center justify-center gap-2 rounded-[14px] bg-white px-5 py-3 font-bold text-[#0a7c72] shadow-[0_8px_18px_rgba(15,23,42,0.06)]"
+              className="flex items-center justify-center gap-2 rounded-[14px] bg-white px-5 py-3 font-bold text-[#2563eb] shadow-[0_8px_18px_rgba(15,23,42,0.06)]"
             >
               <span className="material-symbols-outlined text-[18px]">category</span>
               Kelola Kategori
@@ -1611,7 +1681,7 @@ export function ProductsPage() {
                 setDrawerOpen(true)
               }}
               disabled={categories.length === 0}
-              className="flex items-center justify-center gap-2 rounded-[14px] bg-[#0a7c72] px-5 py-3 font-bold text-white shadow-[0_12px_24px_rgba(10,124,114,0.22)]"
+              className="flex items-center justify-center gap-2 rounded-[14px] bg-[#2563eb] px-5 py-3 font-bold text-white shadow-[0_12px_24px_rgba(37,99,235,0.22)]"
             >
               <span className="material-symbols-outlined text-[18px]">add</span>
               Tambah Produk
@@ -1651,7 +1721,7 @@ export function ProductsPage() {
                   onChange={(event) =>
                     setCategoryId(event.target.value === 'all' ? 'all' : Number(event.target.value))
                   }
-                  className="h-10 rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  className="h-10 rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                 >
                   <option value="all">Semua Kategori</option>
                   {categories.map((category) => (
@@ -1667,7 +1737,7 @@ export function ProductsPage() {
                     setStatusFilter(event.target.value as ProductStatusFilter)
                     setPage(1)
                   }}
-                  className="h-10 rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  className="h-10 rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                 >
                   <option value="all">Semua Status</option>
                   <option value="active">Aktif</option>
@@ -1680,7 +1750,7 @@ export function ProductsPage() {
                     setStokFilter(event.target.value as typeof stokFilter)
                     setPage(1)
                   }}
-                  className="h-10 rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                  className="h-10 rounded-[12px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
                 >
                   <option value="all">Semua Stok</option>
                   <option value="aman">Aman</option>
@@ -1751,7 +1821,7 @@ export function ProductsPage() {
                               {product.foto_url ? (
                                 <img src={product.foto_url} alt={product.nama ?? 'Produk'} className="h-12 w-12 rounded-[14px] object-cover" />
                               ) : (
-                                <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-[#e7f8f6] text-[#0a7c72]">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-[#eff6ff] text-[#2563eb]">
                                   <span className="material-symbols-outlined">inventory_2</span>
                                 </div>
                               )}
@@ -1770,7 +1840,7 @@ export function ProductsPage() {
                             <td className="px-5 py-4 text-sm font-bold text-[#1b1e20]">
                               {formatRupiah(hargaBeli)}
                             </td>
-                            <td className="px-5 py-4 text-sm font-bold text-[#0a7c72]">
+                            <td className="px-5 py-4 text-sm font-bold text-[#2563eb]">
                               {formatRupiah(hargaJual)}
                             </td>
                             <td className="px-5 py-4 text-sm font-bold text-[#1b1e20]">
@@ -1786,7 +1856,7 @@ export function ProductsPage() {
                                     'rounded-full px-3 py-1 text-[10px] font-extrabold uppercase',
                                     product.stok_status === 'habis' && 'bg-[#ffdad6] text-[#ba1a1a]',
                                     product.stok_status === 'menipis' && 'bg-[#ffddb8] text-[#855300]',
-                                    product.stok_status === 'aman' && 'bg-[#ccfaf1] text-[#0a7c72]',
+                                    product.stok_status === 'aman' && 'bg-[#dcfce7] text-[#16a34a]',
                                   )}
                                 >
                                   {product.stok_status ?? 'aman'}
@@ -1798,7 +1868,7 @@ export function ProductsPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleEdit(product)}
-                                  className="rounded-[12px] p-2 text-[#0a7c72] hover:bg-[#e7f8f6]"
+                                  className="rounded-[12px] p-2 text-[#2563eb] hover:bg-[#eff6ff]"
                                 >
                                   <span className="material-symbols-outlined text-[18px]">edit</span>
                                 </button>
@@ -1850,7 +1920,7 @@ export function ProductsPage() {
                           {product.foto_url ? (
                             <img src={product.foto_url} alt={product.nama ?? 'Produk'} className="h-14 w-14 rounded-[14px] object-cover" />
                           ) : (
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] bg-[#e7f8f6] text-[#0a7c72]">
+                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] bg-[#eff6ff] text-[#2563eb]">
                               <span className="material-symbols-outlined">inventory_2</span>
                             </div>
                           )}
@@ -1875,7 +1945,7 @@ export function ProductsPage() {
                                   'rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase',
                                   product.stok_status === 'habis' && 'bg-[#ffdad6] text-[#ba1a1a]',
                                   product.stok_status === 'menipis' && 'bg-[#ffddb8] text-[#855300]',
-                                  product.stok_status === 'aman' && 'bg-[#ccfaf1] text-[#0a7c72]',
+                                  product.stok_status === 'aman' && 'bg-[#dcfce7] text-[#16a34a]',
                                 )}
                               >
                                 {product.stok_status ?? 'aman'}
@@ -1888,7 +1958,7 @@ export function ProductsPage() {
                           </div>
                           <div>
                             <p className="text-[#8b9895]">Harga Jual</p>
-                            <p className="font-bold text-[#0a7c72]">{formatRupiah(hargaJual)}</p>
+                            <p className="font-bold text-[#2563eb]">{formatRupiah(hargaJual)}</p>
                           </div>
                         </div>
 
@@ -1901,7 +1971,7 @@ export function ProductsPage() {
                           <button
                             type="button"
                             onClick={() => handleEdit(product)}
-                            className="rounded-[12px] bg-[#e7f8f6] px-3 py-2 text-xs font-bold text-[#0a7c72]"
+                            className="rounded-[12px] bg-[#eff6ff] px-3 py-2 text-xs font-bold text-[#2563eb]"
                           >
                             Edit
                           </button>
@@ -1960,7 +2030,7 @@ export function ProductsPage() {
                 >
                   Sebelumnya
                 </button>
-                <span className="rounded-[12px] bg-[#0a7c72] px-3 py-2 text-sm font-bold text-white">
+                <span className="rounded-[12px] bg-[#2563eb] px-3 py-2 text-sm font-bold text-white">
                   {page}
                 </span>
                 <button
@@ -2003,7 +2073,7 @@ export function ProductsPage() {
           <div id="barcode-print-area" className="rounded-[18px] border border-[#eef1f1] bg-white p-6 text-center">
             <ProductBarcodePreview
               className="mx-auto h-[110px] w-full max-w-[320px]"
-              value={barcodeProduct?.barcode || barcodeProduct?.sku || 'PRD-RATIH'}
+              value={barcodeProduct?.barcode || barcodeProduct?.sku || 'PRD-ZEE'}
             />
             <p className="mt-4 text-sm font-bold text-[#1b1e20]">{barcodeProduct?.nama ?? '-'}</p>
             <p className="mt-1 text-xs text-[#8b9895]">
@@ -2014,7 +2084,7 @@ export function ProductsPage() {
             <button
               type="button"
               onClick={handlePrintBarcode}
-              className="rounded-[14px] bg-[#0a7c72] px-5 py-3 font-bold text-white"
+              className="rounded-[14px] bg-[#2563eb] px-5 py-3 font-bold text-white"
             >
               Cetak Barcode
             </button>
@@ -2060,7 +2130,7 @@ export function ProductsPage() {
               <select
                 value={bulkCategoryId}
                 onChange={(e) => { setBulkCategoryId(e.target.value === 'all' ? 'all' : Number(e.target.value)); setBulkPreview([]) }}
-                className="h-11 w-full rounded-[12px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                className="h-11 w-full rounded-[12px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
               >
                 <option value="all">Semua Kategori</option>
                 {allCategories.filter((c) => c.is_active).map((c) => (
@@ -2082,7 +2152,7 @@ export function ProductsPage() {
                     className={cn(
                       'h-11 rounded-[12px] text-sm font-bold',
                       bulkJenis === j
-                        ? j === 'naik' ? 'bg-[#0a7c72] text-white' : 'bg-[#d63f2f] text-white'
+                        ? j === 'naik' ? 'bg-[#2563eb] text-white' : 'bg-[#d63f2f] text-white'
                         : 'bg-[#eef0f3] text-[#52627d]',
                     )}
                   >
@@ -2106,7 +2176,7 @@ export function ProductsPage() {
                     onClick={() => { setBulkMode(m); setBulkPreview([]) }}
                     className={cn(
                       'h-11 rounded-[12px] text-sm font-bold',
-                      bulkMode === m ? 'bg-[#0a7c72] text-white' : 'bg-[#eef0f3] text-[#52627d]',
+                      bulkMode === m ? 'bg-[#2563eb] text-white' : 'bg-[#eef0f3] text-[#52627d]',
                     )}
                   >
                     {m === 'persen' ? 'Persentase (%)' : 'Nominal (Rp)'}
@@ -2125,7 +2195,7 @@ export function ProductsPage() {
                 value={bulkNilai || ''}
                 placeholder={bulkMode === 'persen' ? 'e.g. 15' : 'e.g. 500'}
                 onChange={(e) => { setBulkNilai(Number(e.target.value)); setBulkPreview([]) }}
-                className="h-11 w-full rounded-[12px] border-none bg-[#eef0f3] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0a7c72]/15"
+                className="h-11 w-full rounded-[12px] border-none bg-[#eef0f3] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-[#2563eb]/15"
               />
             </div>
           </div>
@@ -2160,7 +2230,7 @@ export function ProductsPage() {
                         <td className="px-4 py-2 text-right text-[#8b9895]">
                           {formatRupiah(p.harga_lama)}
                         </td>
-                        <td className={cn('px-4 py-2 text-right font-bold', bulkJenis === 'naik' ? 'text-[#0a7c72]' : 'text-[#d63f2f]')}>
+                        <td className={cn('px-4 py-2 text-right font-bold', bulkJenis === 'naik' ? 'text-[#2563eb]' : 'text-[#d63f2f]')}>
                           {formatRupiah(p.harga_baru)}
                         </td>
                       </tr>
@@ -2173,7 +2243,7 @@ export function ProductsPage() {
                 type="button"
                 disabled={bulkSubmitting}
                 onClick={() => void handleBulkSubmit()}
-                className="w-full rounded-[14px] bg-[#0a7c72] py-3 font-bold text-white shadow-[0_8px_18px_rgba(10,124,114,0.22)] disabled:opacity-50"
+                className="w-full rounded-[14px] bg-[#2563eb] py-3 font-bold text-white shadow-[0_8px_18px_rgba(37,99,235,0.22)] disabled:opacity-50"
               >
                 {bulkSubmitting ? 'Menyimpan...' : `Terapkan ke ${bulkPreview.length} Produk`}
               </button>
