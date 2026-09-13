@@ -41,8 +41,8 @@
 
 1. Clone repositori:
    ```bash
-   git clone https://github.com/Ferzirayhan/Toko-plastik-Ratih.git
-   cd Toko-plastik-Ratih
+   git clone https://github.com/Ferzirayhan/ZeePOS.git
+   cd ZeePOS
    ```
 
 2. Pasang dependensi:
