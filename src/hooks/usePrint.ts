@@ -21,16 +21,15 @@ export function usePrint({ contentRef, documentTitle }: UsePrintOptions) {
         return
       }
 
-      await supabase.from('audit_logs').insert({
-        user_id: user.id,
-        entity_type: 'transaction',
-        entity_id: documentTitle,
-        action: 'receipt_reprint',
-        description: `Struk ${documentTitle} dicetak ulang.`,
-        metadata: {
+      await supabase.rpc('log_my_audit_event' as never, {
+        p_entity_type: 'transaction',
+        p_entity_id: documentTitle,
+        p_action: 'receipt_reprint',
+        p_description: `Struk ${documentTitle} dicetak ulang.`,
+        p_metadata: {
           nomor_nota: documentTitle,
         },
-      })
+      } as never)
     },
   })
 }

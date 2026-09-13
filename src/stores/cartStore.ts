@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { CartItem, CartState, DiscountTier } from '../types'
 import type { MetodeBayar, ProductWithCategory, ProductUnit } from '../types/database'
+import { getRemainingBaseStock } from '../lib/units'
 
 function getTierDiscount(qty: number, tiers: DiscountTier[]): number {
   if (!tiers.length) return 0
@@ -18,10 +19,12 @@ function roundSubtotal(value: number): number {
 
 interface CartStore extends CartState {
   ppn_persen: number
+  idempotency_key: string | null
   addItem: (product: ProductWithCategory, tiers?: DiscountTier[], unit?: ProductUnit | null) => void
-  removeItem: (productId: number) => void
-  updateQty: (productId: number, qty: number) => void
+  removeItem: (productId: number, unitId?: number | null | undefined) => void
+  updateQty: (productId: number, qty: number, unitId?: number | null | undefined) => void
   clearCart: () => void
+  beginCheckout: () => string
   setDiskon: (persen: number) => void
   togglePPN: () => void
   setPpnPersen: (persen: number) => void
@@ -94,7 +97,14 @@ function withRecalculatedState(partialState: Partial<CartStore>, currentState: C
   return {
     ...partialState,
     ...calculateCartState(mergedState),
+    idempotency_key: null,
   }
+}
+
+function lineMatches(item: CartItem, productId: number, unitId?: number | null | undefined) {
+  return unitId
+    ? item.product_id === productId && item.unit_id === unitId
+    : item.product_id === productId && !item.unit_id
 }
 
 export const useCartStore = create<CartStore>((set, get) => ({
@@ -109,6 +119,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
   total: 0,
   kembalian: 0,
   ppn_persen: 0,
+  idempotency_key: null,
 
   addItem: (product, tiers = [], unit = null) => {
     const currentState = get()
@@ -125,13 +136,20 @@ export const useCartStore = create<CartStore>((set, get) => ({
       throw new Error(`Stok ${product.nama ?? 'produk'} sudah habis`)
     }
 
+    const remainingBaseForNew = getRemainingBaseStock(productId, currentState.items, Number(product.stok ?? 0))
+    if (remainingBaseForNew < rasio) {
+      throw new Error(`Stok ${product.nama ?? 'produk'} tidak mencukupi untuk satuan ini`)
+    }
+
     // Unik berdasarkan product_id + unit_id jika ada satuan
     const existingItem = currentState.items.find(
       (item) => (unit ? item.product_id === productId && item.unit_id === unit.id : item.product_id === productId && !item.unit_id),
     )
 
     if (existingItem) {
-      if (existingItem.qty >= existingItem.stok_tersedia) {
+      const remainingBase = getRemainingBaseStock(productId, currentState.items, Number(product.stok ?? 0))
+      const incrementBase = Number(existingItem.rasio ?? 1)
+      if (remainingBase < incrementBase) {
         throw new Error(`Qty ${existingItem.nama_produk} melebihi stok`)
       }
 
@@ -156,33 +174,47 @@ export const useCartStore = create<CartStore>((set, get) => ({
     set(withRecalculatedState({ items: nextItems }, currentState))
   },
 
-  removeItem: (productId) => {
+  removeItem: (productId, unitId = null) => {
     const currentState = get()
-    const nextItems = currentState.items.filter((item) => item.product_id !== productId)
+    const nextItems = currentState.items.filter((item) => !lineMatches(item, productId, unitId))
     set(withRecalculatedState({ items: nextItems }, currentState))
   },
 
-  updateQty: (productId, qty) => {
+  updateQty: (productId, qty, unitId = null) => {
     const currentState = get()
-    const targetItem = currentState.items.find((item) => item.product_id === productId)
+    const targetItem = currentState.items.find((item) => lineMatches(item, productId, unitId))
 
     if (!targetItem) {
       return
     }
 
     if (qty <= 0) {
-      const nextItems = currentState.items.filter((item) => item.product_id !== productId)
+      const nextItems = currentState.items.filter((item) => !lineMatches(item, productId, unitId))
       set(withRecalculatedState({ items: nextItems }, currentState))
       return
     }
 
-    if (qty > targetItem.stok_tersedia) {
+    const stockInBaseUnits = Math.max(
+      ...currentState.items
+        .filter((item) => item.product_id === productId)
+        .map((item) => item.stok_tersedia * Number(item.rasio ?? 1)),
+    )
+    const aggregateBaseDemand = currentState.items.reduce(
+      (sum, item) => sum + (
+        item.product_id === productId
+          ? (lineMatches(item, productId, unitId) ? qty : item.qty) * Number(item.rasio ?? 1)
+          : 0
+      ),
+      0,
+    )
+
+    if (aggregateBaseDemand > stockInBaseUnits) {
       throw new Error(`Qty ${targetItem.nama_produk} melebihi stok`)
     }
 
     const newDiskon = getEffectiveDiscount(qty, targetItem.discount_tiers, targetItem.diskon_produk_persen)
     const nextItems = currentState.items.map((item) =>
-      item.product_id === productId
+      lineMatches(item, productId, unitId)
         ? {
             ...item,
             qty,
@@ -208,7 +240,26 @@ export const useCartStore = create<CartStore>((set, get) => ({
       total: 0,
       kembalian: 0,
       ppn_persen: 0,
+      idempotency_key: null,
     }),
+
+  beginCheckout: () => {
+    const currentState = get()
+    if (currentState.idempotency_key) {
+      return currentState.idempotency_key
+    }
+
+    const fingerprint = currentState.items
+      .map((i) => `${i.product_id}:${i.unit_id ?? 'base'}:${i.qty}`)
+      .join('|')
+    const nonce = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const key = `zeepos-${nonce}-${fingerprint}`
+
+    set({ idempotency_key: key })
+    return key
+  },
 
   setDiskon: (persen) => {
     const currentState = get()

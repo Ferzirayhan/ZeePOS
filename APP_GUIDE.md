@@ -6,7 +6,7 @@ Panduan lengkap arsitektur, alur fitur, dan cara menjalankan ZeePOS Universal Sa
 
 ## 1. Gambaran Aplikasi
 
-ZeePOS adalah platform kasir dan operasional ritel / FnB modern berbasis cloud yang dirancang untuk kecepatan transaksi, keandalan offline, serta skalabilitas multi-tenant.
+ZeePOS adalah platform kasir dan operasional ritel / FnB modern berbasis cloud yang dirancang untuk kecepatan transaksi, skalabilitas multi-tenant, serta mode offline catalog-only. Saat koneksi terputus, kasir tetap dapat menelusuri katalog produk yang di-cache per-tenant di IndexedDB, namun checkout (transaksi) dinonaktifkan sampai koneksi pulih — tidak ada penjualan offline.
 
 ### Fitur Utama:
 - **Kasir & Point of Sale (POS)**: 
@@ -40,7 +40,7 @@ ZeePOS adalah platform kasir dan operasional ritel / FnB modern berbasis cloud y
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS v3
 - **State Management**: Zustand
 - **Database & Auth**: Supabase (PostgreSQL 15+, Row-Level Security, PostgREST RPC)
-- **Offline Engine**: IndexedDB & Native Web Audio API Synthesizer
+- **Offline Engine**: IndexedDB catalog cache (catalog-only, per-tenant, no offline sales) & Native Web Audio API Synthesizer
 - **Testing**: Vitest & React Testing Library
 
 ---

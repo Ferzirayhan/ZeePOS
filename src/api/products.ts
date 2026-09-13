@@ -261,9 +261,14 @@ export async function updateProduct(
 }
 
 export async function uploadProductPhoto(file: File): Promise<string> {
+  const { data: tenantId, error: tenantError } = await supabase.rpc('get_my_tenant_id' as never)
+  if (tenantError || !tenantId) {
+    throw new Error(tenantError?.message ?? 'Tenant aktif tidak ditemukan.')
+  }
+
   const fileExtension = file.name.split('.').pop() ?? 'jpg'
   const fileName = `${Date.now()}-${crypto.randomUUID()}.${fileExtension}`
-  const filePath = `products/${fileName}`
+  const filePath = `${tenantId}/${fileName}`
 
   const { error } = await supabase.storage.from('products').upload(filePath, file, {
     cacheControl: '3600',
@@ -432,7 +437,7 @@ export async function bulkUpdateProductPrices(
   keterangan?: string,
 ): Promise<number> {
   const { data, error } = await supabase.rpc('bulk_update_product_prices', {
-    p_updates: JSON.stringify(updates),
+    p_updates: updates,
     p_keterangan: keterangan ?? null,
     p_user_id: null,
   })

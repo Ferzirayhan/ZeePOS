@@ -96,6 +96,7 @@ export function ReportsPage() {
       paid_at: selectedTransaction.paid_at ?? null,
       confirmed_by: selectedTransaction.confirmed_by ?? null,
       payment_reference: selectedTransaction.payment_reference ?? null,
+      idempotency_key: null,
       created_at: selectedTransaction.created_at ?? null,
     }
   }, [selectedTransaction])

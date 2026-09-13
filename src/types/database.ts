@@ -5,6 +5,7 @@ export type StatusTransaksi = 'selesai' | 'batal'
 export type PaymentStatus = 'menunggu_konfirmasi' | 'dibayar' | 'gagal'
 export type JenisAdjustment = 'masuk' | 'keluar' | 'koreksi' | 'terjual'
 export type StokStatus = 'aman' | 'menipis' | 'habis'
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export interface Database {
   public: {
@@ -269,6 +270,7 @@ export interface Database {
           paid_at: string | null
           confirmed_by: string | null
           payment_reference: string | null
+          idempotency_key: string | null
           created_at: string | null
         }
         Insert: {
@@ -290,6 +292,7 @@ export interface Database {
           paid_at?: string | null
           confirmed_by?: string | null
           payment_reference?: string | null
+          idempotency_key?: string | null
           created_at?: string | null
         }
         Update: {
@@ -311,6 +314,7 @@ export interface Database {
           paid_at?: string | null
           confirmed_by?: string | null
           payment_reference?: string | null
+          idempotency_key?: string | null
           created_at?: string | null
         }
         Relationships: []
@@ -327,6 +331,9 @@ export interface Database {
           subtotal: number
           laba_kotor: number | null
           diskon_item_persen: number | null
+          rasio: number | null
+          base_qty: number | null
+          nama_satuan: string | null
         }
         Insert: {
           id?: number
@@ -338,6 +345,9 @@ export interface Database {
           qty: number
           subtotal: number
           diskon_item_persen?: number | null
+          rasio?: number | null
+          base_qty?: number | null
+          nama_satuan?: string | null
           laba_kotor?: never
         }
         Update: {
@@ -350,6 +360,9 @@ export interface Database {
           qty?: number
           subtotal?: number
           diskon_item_persen?: number | null
+          rasio?: number | null
+          base_qty?: number | null
+          nama_satuan?: string | null
           laba_kotor?: never
         }
         Relationships: []
@@ -738,11 +751,19 @@ export interface Database {
           p_uang_diterima: number | null
           p_kembalian: number | null
           p_catatan: string | null
+          p_customer_id?: number | null
+          p_idempotency_key?: string | null
         }
         Returns: {
           transaction_id: number
           nomor_nota: string
           payment_status: PaymentStatus
+          subtotal: number
+          diskon_amount: number
+          ppn_amount: number
+          total: number
+          kembalian: number
+          idempotent: boolean
         }
       }
       confirm_transaction_payment: {
@@ -845,7 +866,7 @@ export interface Database {
       }
       bulk_update_product_prices: {
         Args: {
-          p_updates: string
+          p_updates: Json
           p_keterangan?: string | null
           p_user_id?: string | null
         }

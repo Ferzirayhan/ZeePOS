@@ -1,7 +1,8 @@
 <div align="center">
   <h1>ZeePOS</h1>
   <p><strong>Universal Cloud Point of Sale & Retail Management Platform</strong></p>
-  <p>Cepat, responsif, handal offline, dan siap pakai untuk berbagai jenis usaha ritel, grosir, hingga FnB.</p>
+  <p>Cepat, responsif, dan siap pakai untuk berbagai jenis usaha ritel, grosir, hingga FnB.</p>
+  <p><em>Mode offline bersifat katalog-only: kasir dapat menelusuri katalog produk tanpa koneksi, namun checkout wajib online.</em></p>
 </div>
 
 ---
@@ -26,7 +27,7 @@
 - **Framework**: [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) + [Vite](https://vitejs.dev/)
 - **Styling**: [Tailwind CSS v3](https://tailwindcss.com/)
 - **State Management**: [Zustand](https://github.com/pmndrs/zustand)
-- **Backend & Database**: [Supabase](https://supabase.com/) (PostgreSQL 15+, Auth, PostgREST RPC)
+- **Backend & Database**: [Supabase](https://supabase.com/) (PostgreSQL 17 sesuai konfigurasi lokal, Auth, PostgREST RPC)
 - **Testing**: [Vitest](https://vitest.dev/) + React Testing Library
 
 ---
@@ -72,11 +73,14 @@ Aplikasi dapat diakses melalui `http://localhost:5173`.
 - `npm run build`: Memeriksa tipe TypeScript dan membangun aset produksi (`dist/`).
 - `npm run lint`: Memvalidasi kode menggunakan ESLint.
 - `npm test`: Menjalankan pengujian otomatis menggunakan Vitest.
+- `npm run test:coverage`: Menjalankan pengujian dan membuat laporan coverage text, JSON, dan HTML.
 - `npm run preview`: Menjalankan pratinjau hasil build lokal.
 
 ---
 
 ## Deployment
+
+Ikuti [Deployment runbook](docs/DEPLOYMENT.md) untuk urutan migrasi Supabase, backup, konfigurasi auth/storage, smoke test, dan rollback. Lihat juga [baseline audit dependensi](docs/SECURITY.md).
 
 Aplikasi ini siap dideploy ke platform hosting statis modern:
 

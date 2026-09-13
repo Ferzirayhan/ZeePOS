@@ -1,5 +1,5 @@
 const DB_NAME = 'zeepos_offline_db'
-const DB_VERSION = 1
+const DB_VERSION = 3
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -13,10 +13,15 @@ function openDatabase(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       const db = request.result
       if (!db.objectStoreNames.contains('products')) {
-        db.createObjectStore('products', { keyPath: 'id' })
+        const store = db.createObjectStore('products', { keyPath: ['tenant_id', 'id'] })
+        store.createIndex('by_tenant', 'tenant_id', { unique: false })
       }
-      if (!db.objectStoreNames.contains('offline_orders')) {
-        db.createObjectStore('offline_orders', { keyPath: 'id' })
+      if (!db.objectStoreNames.contains('cache_meta')) {
+        db.createObjectStore('cache_meta', { keyPath: 'tenant_id' })
+      }
+      // Remove legacy offline_orders store — offline mode is catalog-only
+      if (db.objectStoreNames.contains('offline_orders')) {
+        db.deleteObjectStore('offline_orders')
       }
     }
 
@@ -25,14 +30,22 @@ function openDatabase(): Promise<IDBDatabase> {
   })
 }
 
-export async function cacheCatalogProducts(products: Array<{ id: number; [key: string]: unknown }>): Promise<void> {
+export async function cacheCatalogProducts(
+  products: Array<{ id: number | null; [key: string]: unknown }>,
+  tenantId: string,
+): Promise<void> {
+  if (!tenantId) {
+    throw new Error('tenantId wajib untuk cache catalog')
+  }
   try {
     const db = await openDatabase()
-    const tx = db.transaction('products', 'readwrite')
-    const store = tx.objectStore('products')
+    const tx = db.transaction(['products', 'cache_meta'], 'readwrite')
+    const productStore = tx.objectStore('products')
     for (const prod of products) {
-      store.put(prod)
+      productStore.put({ ...prod, tenant_id: tenantId })
     }
+    const metaStore = tx.objectStore('cache_meta')
+    metaStore.put({ tenant_id: tenantId, cached_at: Date.now() })
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve()
       tx.onerror = () => reject(tx.error)
@@ -42,12 +55,16 @@ export async function cacheCatalogProducts(products: Array<{ id: number; [key: s
   }
 }
 
-export async function getCachedCatalogProducts<T>(): Promise<T[]> {
+export async function getCachedCatalogProducts<T>(tenantId: string): Promise<T[]> {
+  if (!tenantId) {
+    return []
+  }
   try {
     const db = await openDatabase()
     const tx = db.transaction('products', 'readonly')
     const store = tx.objectStore('products')
-    const req = store.getAll()
+    const index = store.index('by_tenant')
+    const req = index.getAll(IDBKeyRange.only(tenantId))
     return new Promise((resolve, reject) => {
       req.onsuccess = () => resolve((req.result as T[]) || [])
       req.onerror = () => reject(req.error)
@@ -57,62 +74,57 @@ export async function getCachedCatalogProducts<T>(): Promise<T[]> {
   }
 }
 
-export async function queueOfflineOrder(payload: Record<string, unknown>): Promise<string> {
-  const db = await openDatabase()
-  const tx = db.transaction('offline_orders', 'readwrite')
-  const store = tx.objectStore('offline_orders')
-  const id = `OFFLINE-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-
-  store.add({
-    id,
-    created_at: new Date().toISOString(),
-    payload,
-    synced: false,
-  })
-
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve(id)
-    tx.onerror = () => reject(tx.error)
-  })
-}
-
-export async function getOfflineOrdersCount(): Promise<number> {
+export async function getCatalogCacheFreshness(tenantId: string): Promise<number | null> {
+  if (!tenantId) {
+    return null
+  }
   try {
     const db = await openDatabase()
-    const tx = db.transaction('offline_orders', 'readonly')
-    const store = tx.objectStore('offline_orders')
-    const req = store.count()
+    const tx = db.transaction('cache_meta', 'readonly')
+    const store = tx.objectStore('cache_meta')
+    const req = store.get(tenantId)
     return new Promise((resolve, reject) => {
-      req.onsuccess = () => resolve(req.result)
+      req.onsuccess = () => resolve(req.result?.cached_at ?? null)
       req.onerror = () => reject(req.error)
     })
   } catch {
-    return 0
+    return null
   }
 }
 
-export async function getAllOfflineOrders(): Promise<Array<{ id: string; created_at: string; payload: Record<string, unknown>; synced: boolean }>> {
+export async function clearCatalogCache(tenantId?: string): Promise<void> {
   try {
     const db = await openDatabase()
-    const tx = db.transaction('offline_orders', 'readonly')
-    const store = tx.objectStore('offline_orders')
-    const req = store.getAll()
-    return new Promise((resolve, reject) => {
-      req.onsuccess = () => resolve(req.result || [])
-      req.onerror = () => reject(req.error)
-    })
-  } catch {
-    return []
-  }
-}
+    if (tenantId) {
+      const readonlyTx = db.transaction('products', 'readonly')
+      const readonlyStore = readonlyTx.objectStore('products')
+      const index = readonlyStore.index('by_tenant')
+      const keysReq = index.getAllKeys(IDBKeyRange.only(tenantId))
+      const productKeys: IDBValidKey[] = await new Promise((resolve, reject) => {
+        keysReq.onsuccess = () => resolve(keysReq.result || [])
+        keysReq.onerror = () => reject(keysReq.error)
+      })
 
-export async function removeOfflineOrder(id: string): Promise<void> {
-  const db = await openDatabase()
-  const tx = db.transaction('offline_orders', 'readwrite')
-  const store = tx.objectStore('offline_orders')
-  store.delete(id)
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
-  })
+      const tx = db.transaction(['products', 'cache_meta'], 'readwrite')
+      const writeStore = tx.objectStore('products')
+      for (const key of productKeys) {
+        writeStore.delete(key)
+      }
+      tx.objectStore('cache_meta').delete(tenantId)
+      return new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error)
+      })
+    } else {
+      const tx = db.transaction(['products', 'cache_meta'], 'readwrite')
+      tx.objectStore('products').clear()
+      tx.objectStore('cache_meta').clear()
+      return new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error)
+      })
+    }
+  } catch (err) {
+    console.warn('Gagal menghapus cache catalog:', err)
+  }
 }

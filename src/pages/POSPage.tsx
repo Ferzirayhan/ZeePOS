@@ -21,6 +21,9 @@ import {
 } from '../api/products'
 import type { DiscountTierRow } from '../api/products'
 import { getSettings } from '../api/settings'
+import { getAllProductUnitsMap, getProductUnitByBarcode } from '../api/units'
+import { getUnitChoices, findUnitChoice } from '../lib/units'
+import type { ProductUnit } from '../types/database'
 import { CartItem } from '../components/pos/CartItem'
 import { ProductCard } from '../components/pos/ProductCard'
 import { ReceiptModal } from '../components/pos/ReceiptModal'
@@ -31,6 +34,7 @@ import { HeldTransactionsModal } from '../components/pos/HeldTransactionsModal'
 import { NumpadModal } from '../components/pos/NumpadModal'
 import { useHeldCartStore, type HeldCart } from '../stores/heldCartStore'
 import { cacheCatalogProducts, getCachedCatalogProducts } from '../utils/offlineDb'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { buildReceiptBytes, printToThermal } from '../utils/escpos'
 import { audioFeedback } from '../utils/audioFeedback'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -57,9 +61,12 @@ function getPreviewNomorNota() {
 
 export function POSPage() {
   const user = useAuthStore((state) => state.user)
+  const tenantId = useAuthStore((state) => state.tenant?.id) ?? user?.tenant_id ?? ''
+  const isOnline = useOnlineStatus()
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed)
   const pushToast = useToastStore((state) => state.pushToast)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const processingPaymentRef = useRef(false)
 
   const {
     items,
@@ -83,17 +90,24 @@ export function POSPage() {
     setMetodeBayar,
     setUangDiterima,
     restoreCart,
+    beginCheckout,
   } = useCartStore()
 
   // Held Carts Store
   const heldCarts = useHeldCartStore((state) => state.heldCarts)
   const holdCurrentCart = useHeldCartStore((state) => state.holdCurrentCart)
+  const setHeldCartTenant = useHeldCartStore((state) => state.setActiveTenant)
+
+  useEffect(() => {
+    setHeldCartTenant(tenantId || null)
+  }, [setHeldCartTenant, tenantId])
 
   const [products, setProducts] = useState<ProductWithCategory[]>([])
   const [filteredProducts, setFilteredProducts] = useState<ProductWithCategory[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [tiersMap, setTiersMap] = useState<Record<number, DiscountTierRow[]>>({})
   const [variantsMap, setVariantsMap] = useState<Record<number, ProductWithCategory[]>>({})
+  const [unitsMap, setUnitsMap] = useState<Record<number, ProductUnit[]>>({})
   const [unitPickerProduct, setUnitPickerProduct] = useState<ProductWithCategory | null>(null)
   const [pendingTransactions, setPendingTransactions] = useState<TransactionWithKasir[]>([])
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | 'all'>('all')
@@ -113,7 +127,7 @@ export function POSPage() {
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [isHeldModalOpen, setIsHeldModalOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [numpadItem, setNumpadItem] = useState<{ productId: number; nama: string; currentQty: number } | null>(null)
+  const [numpadItem, setNumpadItem] = useState<{ productId: number; unitId?: number; nama: string; currentQty: number } | null>(null)
   const [printingThermal, setPrintingThermal] = useState(false)
   const [confirmModalOpen, setConfirmModalOpen] = useState(false)
   const [confirmTarget, setConfirmTarget] = useState<TransactionWithKasir | null>(null)
@@ -218,12 +232,13 @@ export function POSPage() {
     setLoading(true)
 
     try {
-      const [productsResult, categoriesResult, settingsResult, tiersResult, variantsResult] = await Promise.all([
+      const [productsResult, categoriesResult, settingsResult, tiersResult, variantsResult, unitsResult] = await Promise.all([
         getProducts({ isActive: true }),
         getActiveCategories(),
         getSettings(),
         getAllProductDiscountTiersMap(),
         getAllProductVariantsMap(),
+        getAllProductUnitsMap(),
       ])
 
       setProducts(productsResult)
@@ -231,13 +246,14 @@ export function POSPage() {
       setSettings(settingsResult)
       setTiersMap(tiersResult)
       setVariantsMap(variantsResult)
+      setUnitsMap(unitsResult)
       setPpnPersen(Number(settingsResult.ppn_persen ?? 0))
 
-      // Simpan ke offline cache IndexedDB
-      void cacheCatalogProducts(productsResult as unknown as Array<{ id: number; [key: string]: unknown }>)
+      // Simpan ke offline cache IndexedDB (per-tenant)
+      void cacheCatalogProducts(productsResult as unknown as Array<{ id: number | null; [key: string]: unknown }>, tenantId)
     } catch (error) {
       // Coba ambil dari offline cache jika jaringan bermasalah
-      const cached = await getCachedCatalogProducts<ProductWithCategory>()
+      const cached = await getCachedCatalogProducts<ProductWithCategory>(tenantId)
       if (cached && cached.length > 0) {
         setProducts(cached)
         pushToast({
@@ -256,7 +272,7 @@ export function POSPage() {
     } finally {
       setLoading(false)
     }
-  }, [pushToast, setPpnPersen])
+  }, [pushToast, setPpnPersen, tenantId])
 
   const loadPendingData = useCallback(async () => {
     try {
@@ -312,13 +328,15 @@ export function POSPage() {
   )
 
   const handleAddProduct = (product: ProductWithCategory) => {
-    const variants = variantsMap[product.id ?? 0]
-    if (variants && variants.length > 0) {
+    const pid = product.id ?? 0
+    const variants = variantsMap[pid]
+    const units = unitsMap[pid] ?? []
+    if ((units && units.length > 0) || (variants && variants.length > 0)) {
       setUnitPickerProduct(product)
       return
     }
     try {
-      addItem(product, tiersMap[product.id ?? 0] ?? [])
+      addItem(product, tiersMap[pid] ?? [])
       audioFeedback.playScanBeep()
       setMobileSection('keranjang')
     } catch (error) {
@@ -331,10 +349,10 @@ export function POSPage() {
     }
   }
 
-  const handleSelectUnit = (product: ProductWithCategory) => {
+  const handleSelectUnit = (product: ProductWithCategory, unit?: ProductUnit | null) => {
     setUnitPickerProduct(null)
     try {
-      addItem(product, tiersMap[product.id ?? 0] ?? [])
+      addItem(product, tiersMap[product.id ?? 0] ?? [], unit ?? null)
       audioFeedback.playScanBeep()
       setMobileSection('keranjang')
     } catch (error) {
@@ -363,6 +381,40 @@ export function POSPage() {
           variant: 'success',
         })
         return
+      }
+
+      const matchedUnit = await getProductUnitByBarcode(trimmed)
+      if (matchedUnit) {
+        const unitProduct = products.find(
+          (p) => (p.id ?? 0) === matchedUnit.product_id,
+        )
+        if (unitProduct && Number(unitProduct.stok ?? 0) > 0) {
+          const pid = unitProduct.id ?? 0
+          const choices = getUnitChoices(unitProduct, unitsMap[pid] ?? [matchedUnit])
+          if (findUnitChoice(choices, trimmed)) {
+            try {
+              addItem(unitProduct, tiersMap[pid] ?? [], matchedUnit)
+              audioFeedback.playScanBeep()
+              setMobileSection('keranjang')
+              setSearchQuery('')
+              pushToast({
+                title: 'Produk ditambahkan',
+                description: `${unitProduct.nama ?? 'Produk'} (${matchedUnit.nama_satuan}) masuk keranjang.`,
+                variant: 'success',
+              })
+              return
+            } catch (error) {
+              audioFeedback.playWarningTone()
+              pushToast({
+                title: 'Tidak bisa menambah produk',
+                description: error instanceof Error ? error.message : 'Qty produk melebihi stok.',
+                variant: 'warning',
+              })
+              setSearchQuery('')
+              return
+            }
+          }
+        }
       }
 
       const lower = trimmed.toLowerCase()
@@ -426,9 +478,12 @@ export function POSPage() {
       ppn_persen,
       metode_bayar,
       total,
+      customer_id: selectedCustomer?.id ?? null,
+      customer_nama: selectedCustomer?.nama ?? null,
     })
 
     clearCart()
+    setSelectedCustomer(null)
     pushToast({
       title: 'Pesanan Ditahan (F2)',
       description: `${items.length} item berhasil diparkir. Keranjang siap untuk pelanggan baru.`,
@@ -453,6 +508,21 @@ export function POSPage() {
       ppn_persen: held.ppn_persen,
       metode_bayar: held.metode_bayar,
     })
+
+    if (held.customer_id) {
+      setSelectedCustomer({
+        id: held.customer_id,
+        tenant_id: '',
+        nama: held.customer_nama ?? 'Pelanggan',
+        telepon: null,
+        alamat: null,
+        total_hutang: 0,
+        catatan: null,
+        is_active: true,
+      })
+    } else {
+      setSelectedCustomer(null)
+    }
 
     pushToast({
       title: 'Pesanan Dilanjutkan',
@@ -547,7 +617,16 @@ export function POSPage() {
   })
 
   const handleProcessPayment = async () => {
-    if (items.length === 0) {
+    if (items.length === 0 || processingPaymentRef.current) {
+      return
+    }
+
+    if (!isOnline) {
+      pushToast({
+        title: 'Checkout dinonaktifkan',
+        description: 'Transaksi tidak dapat diproses saat offline. Katalog tersedia untuk referensi saja.',
+        variant: 'warning',
+      })
       return
     }
 
@@ -559,6 +638,10 @@ export function POSPage() {
       })
       return
     }
+
+    processingPaymentRef.current = true
+    setProcessingPayment(true)
+    const idempotencyKey = beginCheckout()
 
     try {
       const freshProducts = await getProducts({ isActive: true })
@@ -588,8 +671,6 @@ export function POSPage() {
         }
       }
 
-      setProcessingPayment(true)
-
       const result = await createTransaction({
         items: items.map((item) => ({
           productId: item.product_id,
@@ -612,6 +693,7 @@ export function POSPage() {
         uangDiterima: metode_bayar === 'tunai' ? uang_diterima : null,
         kembalian: metode_bayar === 'tunai' ? kembalian : 0,
         customerId: selectedCustomer?.id ?? null,
+        idempotencyKey,
       })
 
       await Promise.all([loadCatalogData(), loadPendingData()])
@@ -637,6 +719,7 @@ export function POSPage() {
       }
 
       clearCart()
+      setSelectedCustomer(null)
       setSearchQuery('')
       setPpnPersen(Number(settings.ppn_persen ?? 0))
       searchInputRef.current?.focus()
@@ -648,6 +731,7 @@ export function POSPage() {
         variant: 'error',
       })
     } finally {
+      processingPaymentRef.current = false
       setProcessingPayment(false)
     }
   }
@@ -727,6 +811,7 @@ export function POSPage() {
 
   const handleNewTransaction = () => {
     clearCart()
+    setSelectedCustomer(null)
     setPpnPersen(Number(settings.ppn_persen ?? 0))
     setReceiptOpen(false)
     setReceiptTransaction(null)
@@ -815,6 +900,16 @@ export function POSPage() {
             ))}
           </div>
         </div>
+
+        {!isOnline && (
+          <div className="mb-4 flex items-center gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3">
+            <span className="material-symbols-outlined text-amber-600 text-xl">wifi_off</span>
+            <div className="text-sm">
+              <span className="font-bold text-amber-800">Mode Offline Aktif.</span>{' '}
+              <span className="text-amber-700">Katalog tersedia untuk referensi. Checkout dinonaktifkan sampai koneksi pulih.</span>
+            </div>
+          </div>
+        )}
 
         {/* Kolom Kiri: Katalog Kasir Luas & Horizontal Category Tabs Moka POS */}
         <section
@@ -1124,55 +1219,56 @@ export function POSPage() {
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2.5">
             {items.length > 0 ? (
               items.map((item) => (
-                <CartItem
-                  key={item.product_id}
-                  item={item}
-                  onDecrease={() => {
-                    try {
-                      updateQty(item.product_id, item.qty - 1);
-                    } catch (error) {
-                      pushToast({
-                        title: 'Qty tidak valid',
-                        description:
-                          error instanceof Error ? error.message : 'Qty produk melebihi stok.',
-                        variant: 'warning',
-                      });
+                  <CartItem
+                    key={item.unit_id ? `${item.product_id}-${item.unit_id}` : String(item.product_id)}
+                    item={item}
+                    onDecrease={() => {
+                      try {
+                        updateQty(item.product_id, item.qty - 1, item.unit_id);
+                      } catch (error) {
+                        pushToast({
+                          title: 'Qty tidak valid',
+                          description:
+                            error instanceof Error ? error.message : 'Qty produk melebihi stok.',
+                          variant: 'warning',
+                        });
+                      }
+                    }}
+                    onIncrease={() => {
+                      try {
+                        updateQty(item.product_id, item.qty + 1, item.unit_id);
+                      } catch (error) {
+                        pushToast({
+                          title: 'Qty tidak valid',
+                          description:
+                            error instanceof Error ? error.message : 'Qty produk melebihi stok.',
+                          variant: 'warning',
+                        });
+                      }
+                    }}
+                    onRemove={() => removeItem(item.product_id, item.unit_id)}
+                    onOpenNumpad={() =>
+                      setNumpadItem({
+                        productId: item.product_id,
+                        unitId: item.unit_id,
+                        nama: item.nama_produk,
+                        currentQty: item.qty,
+                      })
                     }
-                  }}
-                  onIncrease={() => {
-                    try {
-                      updateQty(item.product_id, item.qty + 1);
-                    } catch (error) {
-                      pushToast({
-                        title: 'Qty tidak valid',
-                        description:
-                          error instanceof Error ? error.message : 'Qty produk melebihi stok.',
-                        variant: 'warning',
-                      });
-                    }
-                  }}
-                  onRemove={() => removeItem(item.product_id)}
-                  onOpenNumpad={() =>
-                    setNumpadItem({
-                      productId: item.product_id,
-                      nama: item.nama_produk,
-                      currentQty: item.qty,
-                    })
-                  }
-                  onSetQty={(qty) => {
-                    try {
-                      updateQty(item.product_id, qty);
-                    } catch (error) {
-                      pushToast({
-                        title: 'Qty tidak valid',
-                        description:
-                          error instanceof Error ? error.message : 'Qty produk melebihi stok.',
-                        variant: 'warning',
-                      });
-                    }
-                  }}
-                />
-              ))
+                    onSetQty={(qty) => {
+                      try {
+                        updateQty(item.product_id, qty, item.unit_id);
+                      } catch (error) {
+                        pushToast({
+                          title: 'Qty tidak valid',
+                          description:
+                            error instanceof Error ? error.message : 'Qty produk melebihi stok.',
+                          variant: 'warning',
+                        });
+                      }
+                    }}
+                  />
+                ))
             ) : (
               <div className="flex h-56 flex-col items-center justify-center text-center">
                 <span className="material-symbols-outlined text-4xl text-slate-300">shopping_cart</span>
@@ -1240,7 +1336,7 @@ export function POSPage() {
             {/* Tombol Bayar Raksasa Moka POS */}
             <button
               type="button"
-              disabled={items.length === 0}
+              disabled={items.length === 0 || !isOnline}
               onClick={() => setIsPaymentModalOpen(true)}
               className="mt-2 flex h-16 w-full items-center justify-between rounded-2xl bg-[#2563eb] px-6 font-display text-base font-black tracking-wide text-white shadow-lg shadow-blue-500/25 transition hover:bg-[#1d4ed8] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
             >
@@ -1277,7 +1373,7 @@ export function POSPage() {
 
               <button
                 type="button"
-                disabled={processingPayment || items.length === 0}
+                disabled={processingPayment || items.length === 0 || !isOnline}
                 onClick={() => {
                   setIsPaymentModalOpen(true)
                 }}
@@ -1376,41 +1472,54 @@ export function POSPage() {
         description="Pilih satuan yang ingin ditambahkan ke keranjang."
         size="sm"
       >
-        {unitPickerProduct && (
-          <div className="space-y-2">
-            <button
-              type="button"
-              disabled={Number(unitPickerProduct.stok ?? 0) <= 0}
-              onClick={() => handleSelectUnit(unitPickerProduct)}
-              className="flex w-full items-center justify-between rounded-[14px] bg-[#f7f9f9] px-4 py-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50 hover:bg-[#eff6ff]"
-            >
-              <div>
-                <span className="font-extrabold text-[#1b1e20]">{unitPickerProduct.satuan}</span>
-                <span className="ml-2 text-xs text-[#8b9895]">Stok: {unitPickerProduct.stok ?? 0}</span>
-              </div>
-              <span className="font-extrabold text-[#2563eb]">
-                {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(unitPickerProduct.harga_jual ?? 0))}
-              </span>
-            </button>
-            {(variantsMap[unitPickerProduct.id ?? 0] ?? []).map((variant) => (
-              <button
-                key={variant.id}
-                type="button"
-                disabled={Number(variant.stok ?? 0) <= 0}
-                onClick={() => handleSelectUnit(variant)}
-                className="flex w-full items-center justify-between rounded-[14px] bg-[#f7f9f9] px-4 py-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50 hover:bg-[#eff6ff]"
-              >
-                <div>
-                  <span className="font-extrabold text-[#1b1e20]">{variant.satuan}</span>
-                  <span className="ml-2 text-xs text-[#8b9895]">Stok: {variant.stok ?? 0}</span>
-                </div>
-                <span className="font-extrabold text-[#2563eb]">
-                  {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(variant.harga_jual ?? 0))}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
+        {unitPickerProduct && (() => {
+          const pid = unitPickerProduct.id ?? 0
+          const choices = getUnitChoices(unitPickerProduct, unitsMap[pid] ?? [])
+          return (
+            <div className="space-y-2">
+              {choices.map((choice) => {
+                const matchedUnit =
+                  choice.source === 'product_unit'
+                    ? (unitsMap[pid] ?? []).find((u) => u.id === choice.unit_id) ?? null
+                    : null
+                return (
+                  <button
+                    key={choice.unit_id ? `u-${choice.unit_id}` : 'base'}
+                    type="button"
+                    disabled={choice.stok_tersedia <= 0}
+                    onClick={() => handleSelectUnit(unitPickerProduct, matchedUnit)}
+                    className="flex w-full items-center justify-between rounded-[14px] bg-[#f7f9f9] px-4 py-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50 hover:bg-[#eff6ff]"
+                  >
+                    <div>
+                      <span className="font-extrabold text-[#1b1e20]">{choice.nama_satuan}</span>
+                      <span className="ml-2 text-xs text-[#8b9895]">Stok: {choice.stok_tersedia}</span>
+                    </div>
+                    <span className="font-extrabold text-[#2563eb]">
+                      {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(choice.harga_jual)}
+                    </span>
+                  </button>
+                )
+              })}
+              {(variantsMap[pid] ?? []).map((variant) => (
+                <button
+                  key={variant.id}
+                  type="button"
+                  disabled={Number(variant.stok ?? 0) <= 0}
+                  onClick={() => handleSelectUnit(variant)}
+                  className="flex w-full items-center justify-between rounded-[14px] bg-[#f7f9f9] px-4 py-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50 hover:bg-[#eff6ff]"
+                >
+                  <div>
+                    <span className="font-extrabold text-[#1b1e20]">{variant.satuan}</span>
+                    <span className="ml-2 text-xs text-[#8b9895]">Stok: {variant.stok ?? 0}</span>
+                  </div>
+                  <span className="font-extrabold text-[#2563eb]">
+                    {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(variant.harga_jual ?? 0))}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )
+        })()}
       </Modal>
 
       <Modal
@@ -1642,7 +1751,7 @@ export function POSPage() {
           quickOptions={[1, 2, 5, 10, 20, 50, 100]}
           onConfirm={(val) => {
             try {
-              updateQty(numpadItem.productId, val)
+              updateQty(numpadItem.productId, val, numpadItem.unitId)
             } catch (err) {
               pushToast({
                 title: 'Qty Tidak Valid',

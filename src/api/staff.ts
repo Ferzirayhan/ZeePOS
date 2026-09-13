@@ -48,10 +48,10 @@ export async function resetStaffPassword(userId: string, newPassword: string): P
 }
 
 export async function updateStaffStatus(userId: string, isActive: boolean): Promise<void> {
-  const { error } = await supabase
-    .from('profiles')
-    .update({ is_active: isActive })
-    .eq('id', userId)
+  const { error } = await supabase.rpc('set_staff_active' as never, {
+    p_user_id: userId,
+    p_is_active: isActive,
+  } as never)
 
   if (error) {
     throw new Error(error.message)

@@ -37,6 +37,7 @@ import type { Category, ProductWithCategory, SatuanType } from '../types/databas
 import { formatRupiah } from '../utils/currency'
 import { exportToExcel } from '../utils/export'
 import { cn } from '../utils/cn'
+import { openPrintWindow, writeSafePrintDocument } from '../utils/printWindow'
 
 const productSchema = z.object({
   sku: z.string().trim().optional(),
@@ -1508,30 +1509,20 @@ export function ProductsPage() {
       return
     }
 
-    const printWindow = window.open('', '_blank', 'width=420,height=600')
+    const printWindow = openPrintWindow('', '420', '600')
 
     if (!printWindow) {
       return
     }
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>${barcodeProduct.nama ?? 'Barcode Produk'}</title>
-          <style>
-            body { font-family: sans-serif; padding: 24px; text-align: center; }
-            svg { width: 100%; height: auto; }
-          </style>
-        </head>
-        <body>
-          <h2>${barcodeProduct.nama ?? ''}</h2>
-          ${barcodeNode.innerHTML}
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
-    printWindow.focus()
-    printWindow.print()
+    writeSafePrintDocument(printWindow.document, printWindow, {
+      title: barcodeProduct.nama ?? 'Barcode Produk',
+      styleCss: 'body{font-family:sans-serif;padding:24px;text-align:center}svg{width:100%;height:auto}',
+      slots: [
+        { id: 'nama', text: barcodeProduct.nama ?? '' },
+        { id: 'barcode', trustedHtml: barcodeNode.innerHTML },
+      ],
+    })
   }
 
   const handleDeleteProduct = async () => {

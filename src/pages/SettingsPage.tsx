@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { createStaffMember, resetStaffPassword } from '../api/staff'
+import { createStaffMember, resetStaffPassword, updateStaffStatus } from '../api/staff'
 import { useSettings } from '../hooks/useSettings'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
@@ -10,6 +10,7 @@ import { useUIStore } from '../stores/uiStore'
 import { useToastStore } from '../stores/toastStore'
 import type { Profile } from '../types/database'
 import { cn } from '../utils/cn'
+import { openPrintWindow, writeSafePrintDocument } from '../utils/printWindow'
 
 const storeProfileSchema = z.object({
   nama_toko: z.string().min(2, 'Nama toko wajib diisi'),
@@ -337,14 +338,7 @@ export function SettingsPage() {
     setUpdatingProfileId(profile.id)
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ is_active: !(profile.is_active ?? true) })
-        .eq('id', profile.id)
-
-      if (error) {
-        throw new Error(error.message)
-      }
+      await updateStaffStatus(profile.id, !(profile.is_active ?? true))
 
       await loadProfiles()
       pushToast({
@@ -369,47 +363,29 @@ export function SettingsPage() {
   const selectedPpnEnabled = watchTax('ppn_enabled')
 
   const handleTestPrint = () => {
-    const win = window.open('', '_blank', 'width=400,height=600')
+    const win = openPrintWindow('', '400', '600')
 
     if (!win) {
       return
     }
 
-    win.document.write(`
-      <html>
-        <head>
-          <title>Test Struk</title>
-          <style>
-            body {
-              font-family: monospace;
-              font-size: 13px;
-              padding: 20px;
-              text-align: center;
-            }
-
-            hr {
-              border: none;
-              border-top: 1px dashed #000;
-            }
-          </style>
-        </head>
-        <body>
-          <h2>${settings.nama_toko ?? 'Nama Toko'}</h2>
-          <p>${settings.alamat ?? 'Alamat toko'}</p>
-          <p>Tel: ${settings.no_telp ?? '-'}</p>
-          <hr/>
-          <p>${settings.header_struk ?? 'Header struk'}</p>
-          <hr/>
-          <p>TEST PRINT - ${new Date().toLocaleString('id-ID')}</p>
-          <p>Struk ini hanya untuk uji cetak.</p>
-          <hr/>
-          <p>${settings.footer_struk ?? 'Footer struk'}</p>
-        </body>
-      </html>
-    `)
-    win.document.close()
-    win.focus()
-    win.print()
+    writeSafePrintDocument(win.document, win, {
+      title: 'Test Struk',
+      styleCss:
+        'body{font-family:monospace;font-size:13px;padding:20px;text-align:center}hr{border:none;border-top:1px dashed #000}',
+      slots: [
+        { id: 'nama', text: settings.nama_toko ?? 'Nama Toko' },
+        { id: 'alamat', text: settings.alamat ?? 'Alamat toko' },
+        { id: 'telp', text: `Tel: ${settings.no_telp ?? '-'}` },
+        { id: 'hr1', trustedHtml: '<hr/>' },
+        { id: 'header', text: settings.header_struk ?? 'Header struk' },
+        { id: 'hr2', trustedHtml: '<hr/>' },
+        { id: 'test', text: `TEST PRINT - ${new Date().toLocaleString('id-ID')}` },
+        { id: 'note', text: 'Struk ini hanya untuk uji cetak.' },
+        { id: 'hr3', trustedHtml: '<hr/>' },
+        { id: 'footer', text: settings.footer_struk ?? 'Footer struk' },
+      ],
+    })
   }
 
   return (
