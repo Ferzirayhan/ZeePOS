@@ -43,6 +43,7 @@ export interface CreateTransactionInput {
   kembalian?: number | null
   catatan?: string | null
   customerId?: number | null
+  idempotencyKey?: string | null
 }
 
 export interface TransactionDetail {
@@ -211,6 +212,7 @@ export async function createTransaction(
     p_kembalian: payload.kembalian ?? null,
     p_catatan: payload.catatan ?? null,
     p_customer_id: payload.customerId ?? null,
+    p_idempotency_key: payload.idempotencyKey ?? null,
   })
 
   if (error) {

@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "setup": "sh ./setup.sh",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -36,11 +37,13 @@
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.11",
     "@vitest/ui": "^4.1.0",
     "autoprefixer": "^10.4.27",
     "eslint": "^9.39.4",
-    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-hooks": "7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "fake-indexeddb": "^6.2.5",
     "globals": "^17.4.0",
     "jsdom": "^27.4.0",
     "postcss": "^8.5.8",

@@ -2,6 +2,10 @@ import { create } from 'zustand'
 import type { Session, Subscription } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Profile, Tenant } from '../types/database'
+import { clearCatalogCache } from '../utils/offlineDb'
+import { useHeldCartStore } from './heldCartStore'
+import { useCartStore } from './cartStore'
+import { hasAuthIdentityChanged } from './authIdentity'
 
 interface AuthState {
   user: Profile | null
@@ -78,12 +82,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { data: authListener } = supabase.auth.onAuthStateChange(
         (_event, nextSession) => {
           void (async () => {
+            const previousUserId = get().session?.user.id ?? null
+            const previousTenantId = get().tenant?.id ?? null
             const nextProfile = nextSession?.user?.id
               ? await get().getProfile(nextSession.user.id)
               : null
             const nextTenant = nextProfile?.tenant_id
               ? await get().getTenant(nextProfile.tenant_id)
               : null
+            const identityChanged = hasAuthIdentityChanged(
+              previousUserId,
+              previousTenantId,
+              nextSession?.user.id ?? null,
+              nextTenant?.id ?? null,
+            )
+
+            // Clear tenant-local state on logout or an actual account switch.
+            if (identityChanged || !nextSession) {
+              void clearCatalogCache(previousTenantId ?? undefined)
+              useHeldCartStore.getState().clearForLogout()
+              useCartStore.getState().clearCart()
+            }
 
             set({
               session: nextSession,
@@ -190,6 +209,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ loading: false, error: error.message })
       throw error
     }
+
+    // Clear all device-local tenant data on logout.
+    void clearCatalogCache()
+    useHeldCartStore.getState().clearForLogout()
+    useCartStore.getState().clearCart()
 
     set({
       session: null,

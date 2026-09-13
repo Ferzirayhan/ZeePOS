@@ -1,10 +1,11 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
 import type { CartItem } from '../types'
 import type { MetodeBayar } from '../types/database'
 
 export interface HeldCart {
   id: string
+  tenant_id: string
   label: string
   created_at: string
   items: CartItem[]
@@ -13,74 +14,102 @@ export interface HeldCart {
   ppn_persen: number
   metode_bayar: MetodeBayar
   total: number
+  customer_id: number | null
+  customer_nama: string | null
+}
+
+type HoldPayload = Omit<HeldCart, 'id' | 'tenant_id' | 'created_at' | 'label' | 'customer_id' | 'customer_nama'> & {
+  label?: string
+  customer_id?: number | null
+  customer_nama?: string | null
 }
 
 interface HeldCartStore {
+  activeTenantId: string | null
+  cartsByTenant: Record<string, HeldCart[]>
   heldCarts: HeldCart[]
-  holdCurrentCart: (payload: {
-    label?: string
-    items: CartItem[]
-    diskon_persen: number
-    use_ppn: boolean
-    ppn_persen: number
-    metode_bayar: MetodeBayar
-    total: number
-  }) => string
+  setActiveTenant: (tenantId: string | null) => void
+  holdCurrentCart: (payload: HoldPayload) => string
   resumeHeldCart: (id: string) => HeldCart | null
   deleteHeldCart: (id: string) => void
   clearAllHeldCarts: () => void
+  clearForLogout: () => void
+}
+
+function safeStorage(): Storage {
+  if (typeof globalThis !== 'undefined' && globalThis.localStorage) return globalThis.localStorage
+  const memory = new Map<string, string>()
+  return {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => { memory.set(key, value) },
+    removeItem: (key: string) => { memory.delete(key) },
+  } as Storage
 }
 
 export const useHeldCartStore = create<HeldCartStore>()(
   persist(
     (set, get) => ({
+      activeTenantId: null,
+      cartsByTenant: {},
       heldCarts: [],
 
+      setActiveTenant: (tenantId) => set((state) => ({
+        activeTenantId: tenantId,
+        heldCarts: tenantId ? (state.cartsByTenant[tenantId] ?? []) : [],
+      })),
+
       holdCurrentCart: (payload) => {
-        const id = `HOLD-${Date.now()}`
-        const count = get().heldCarts.length + 1
-        const defaultLabel = `Pesanan #${count}`
+        const tenantId = get().activeTenantId
+        if (!tenantId) throw new Error('Tenant aktif diperlukan untuk menahan pesanan')
+        const current = get().cartsByTenant[tenantId] ?? []
+        const id = `HOLD-${Date.now()}-${Math.random().toString(36).slice(2)}`
         const newHeld: HeldCart = {
+          ...payload,
           id,
-          label: payload.label?.trim() || defaultLabel,
+          tenant_id: tenantId,
+          label: payload.label?.trim() || `Pesanan #${current.length + 1}`,
           created_at: new Date().toISOString(),
-          items: payload.items,
-          diskon_persen: payload.diskon_persen,
-          use_ppn: payload.use_ppn,
-          ppn_persen: payload.ppn_persen,
-          metode_bayar: payload.metode_bayar,
-          total: payload.total,
+          customer_id: payload.customer_id ?? null,
+          customer_nama: payload.customer_nama ?? null,
         }
-
-        set((state) => ({
-          heldCarts: [newHeld, ...state.heldCarts],
-        }))
-
+        const next = [newHeld, ...current]
+        set((state) => ({ cartsByTenant: { ...state.cartsByTenant, [tenantId]: next }, heldCarts: next }))
         return id
       },
 
       resumeHeldCart: (id) => {
-        const target = get().heldCarts.find((h) => h.id === id) || null
+        const tenantId = get().activeTenantId
+        if (!tenantId) return null
+        const current = get().cartsByTenant[tenantId] ?? []
+        const target = current.find((cart) => cart.id === id && cart.tenant_id === tenantId) ?? null
         if (target) {
-          set((state) => ({
-            heldCarts: state.heldCarts.filter((h) => h.id !== id),
-          }))
+          const next = current.filter((cart) => cart.id !== id)
+          set((state) => ({ cartsByTenant: { ...state.cartsByTenant, [tenantId]: next }, heldCarts: next }))
         }
         return target
       },
 
       deleteHeldCart: (id) => {
-        set((state) => ({
-          heldCarts: state.heldCarts.filter((h) => h.id !== id),
-        }))
+        const tenantId = get().activeTenantId
+        if (!tenantId) return
+        const next = (get().cartsByTenant[tenantId] ?? []).filter((cart) => cart.id !== id)
+        set((state) => ({ cartsByTenant: { ...state.cartsByTenant, [tenantId]: next }, heldCarts: next }))
       },
 
       clearAllHeldCarts: () => {
-        set({ heldCarts: [] })
+        const tenantId = get().activeTenantId
+        if (!tenantId) return set({ heldCarts: [] })
+        set((state) => ({ cartsByTenant: { ...state.cartsByTenant, [tenantId]: [] }, heldCarts: [] }))
       },
+
+      clearForLogout: () => set({ activeTenantId: null, cartsByTenant: {}, heldCarts: [] }),
     }),
     {
       name: 'zeepos_held_carts',
+      version: 2,
+      storage: createJSONStorage(() => safeStorage()),
+      partialize: (state) => ({ cartsByTenant: state.cartsByTenant }),
+      migrate: (persisted, version) => version < 2 ? { cartsByTenant: {}, heldCarts: [], activeTenantId: null } : persisted as HeldCartStore,
     },
   ),
 )

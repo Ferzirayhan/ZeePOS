@@ -15,6 +15,20 @@ export async function getProductUnits(productId: number): Promise<ProductUnit[]>
   return (data as ProductUnit[]) || []
 }
 
+export async function getProductUnitByBarcode(barcode: string): Promise<ProductUnit | null> {
+  const { data, error } = await supabase
+    .from('product_units')
+    .select('*')
+    .eq('barcode', barcode)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data as ProductUnit) ?? null
+}
+
 export async function getAllProductUnitsMap(): Promise<Record<number, ProductUnit[]>> {
   const { data, error } = await supabase
     .from('product_units')
