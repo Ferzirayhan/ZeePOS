@@ -1,182 +1,96 @@
-# ZeePOS
+<div align="center">
+  <h1>ZeePOS</h1>
+  <p><strong>Universal Cloud Point of Sale & Retail Management Platform</strong></p>
+  <p>Cepat, responsif, handal offline, dan siap pakai untuk berbagai jenis usaha ritel, grosir, hingga FnB.</p>
+</div>
 
-Aplikasi Point of Sale SaaS Universal berbasis React, TypeScript, Tailwind CSS, dan Supabase.
+---
 
-## Stack
+## Fitur Utama
 
-- Frontend: React 18 + TypeScript + Vite
-- Styling: Tailwind CSS v3
-- State management: Zustand
-- Routing: React Router v6
-- Backend: Supabase
-- Database: PostgreSQL via Supabase
-- Auth: Supabase Auth email/password
-- Storage: Supabase Storage
-- Charts: Recharts
-- Form: React Hook Form + Zod
-- Print: react-to-print
-- Export Excel: xlsx
+- ⚡ **Antarmuka Kasir Cepat (POS)**: Didesain untuk efisiensi tinggi dengan layout 2-pane, navigasi shortcut keyboard lengkap (F1–F10), dan virtual numpad untuk layar sentuh.
+- 📦 **Konversi Multi-Satuan Produk**: Dukungan penjualan berjenjang (Pcs, Lusin, Dus, Bal, Roll, Kg) dengan kalkulasi potong stok rasio otomatis.
+- 👥 **Pelanggan & Buku Piutang**: Manajemen member, pencatatan transaksi tempo / bon hutang, dan riwayat pelunasan cicilan terintegrasi.
+- 🖨️ **Dukungan Perangkat Keras Ritel**:
+  - Direct Thermal ESC/POS USB (WebUSB API murni, tanpa driver tambahan).
+  - Scanner Barcode Kamera & USB Handheld Scanner.
+  - Audio synthesizer native (Web Audio API) untuk konfirmasi scan.
+- ⏸️ **Parkir Transaksi (Hold Cart)**: Tahan pesanan aktif untuk melayani antrean lain tanpa risiko data transaksi hilang.
+- 📊 **Laporan Finansial & Audit Trail**: Ringkasan omset harian/bulanan, analisis margin keuntungan, jejak audit aktivitas kasir, dan export data ke spreadsheet Excel.
+- 🔒 **Arsitektur Multi-Tenant & Keamanan**: Didukung Row-Level Security (RLS) PostgreSQL, transaksi database atomik (ACID), serta hak akses berjenjang (Admin & Kasir).
 
-## Prerequisites
+---
 
-- Node.js 18+
-- npm 9+
-- Docker Desktop atau Colima
-- Supabase CLI
+## Tech Stack
 
-## Supabase Cloud
+- **Framework**: [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) + [Vite](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS v3](https://tailwindcss.com/)
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+- **Backend & Database**: [Supabase](https://supabase.com/) (PostgreSQL 15+, Auth, PostgREST RPC)
+- **Testing**: [Vitest](https://vitest.dev/) + React Testing Library
 
-Project ini sudah siap dipindahkan ke Supabase Cloud. Alur yang disarankan:
+---
 
-```bash
-supabase link --project-ref YOUR_PROJECT_REF
-supabase db push --include-seed
-```
+## Memulai Cepat
 
-Lalu isi environment frontend:
+### Prasyarat
+- Node.js 18.x atau versi lebih baru
+- npm 9.x atau versi lebih baru
 
-```env
-VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
-```
+### Instalasi
 
-Catatan penting:
+1. Clone repositori:
+   ```bash
+   git clone https://github.com/Ferzirayhan/Toko-plastik-Ratih.git
+   cd Toko-plastik-Ratih
+   ```
 
-- migration sekarang juga membuat bucket storage `products` beserta policy-nya
-- user Auth dari Supabase local tidak otomatis pindah ke cloud, jadi admin dan kasir perlu dibuat ulang di dashboard cloud
-- setelah user dibuat, isi tabel `profiles` agar role aplikasi terbaca
+2. Pasang dependensi:
+   ```bash
+   npm install
+   ```
 
-Contoh insert profile:
+3. Konfigurasi kredensial lingkungan:
+   Buat file `.env.local` di root direktori:
+   ```env
+   VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   ```
 
-```sql
-INSERT INTO profiles (id, nama, username, role, is_active)
-VALUES
-('UUID_USER', 'Nama Pengguna', 'username', 'admin', true);
-```
+4. Jalankan server lokal:
+   ```bash
+   npm run dev
+   ```
 
-## Menjalankan Supabase Local
+Aplikasi dapat diakses melalui `http://localhost:5173`.
 
-Jika memakai Colima:
+---
 
-```bash
-colima start
-```
+## Script NPM
 
-Masuk ke folder project:
+- `npm run dev`: Menjalankan server pengembangan Vite lokal.
+- `npm run build`: Memeriksa tipe TypeScript dan membangun aset produksi (`dist/`).
+- `npm run lint`: Memvalidasi kode menggunakan ESLint.
+- `npm test`: Menjalankan pengujian otomatis menggunakan Vitest.
+- `npm run preview`: Menjalankan pratinjau hasil build lokal.
 
-```bash
-cd /Users/ezi/Downloads/Html-css\ TPR/toko-plastik-ratih-pos
-```
+---
 
-Jalankan Supabase local:
+## Deployment
 
-```bash
-supabase start
-```
+Aplikasi ini siap dideploy ke platform hosting statis modern:
 
-Salin `ANON_KEY` dari output:
+### Cloudflare Pages
+- **Framework Preset**: Vite
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
+- **Redirects SPA**: Menggunakan file `public/_redirects` bawaan.
 
-```bash
-supabase status -o env
-```
+### Vercel
+- Hubungkan repositori langsung ke Vercel. Konfigurasi rewrite SPA sudah disediakan dalam `vercel.json`.
 
-Isi file `.env.local`:
+---
 
-```env
-VITE_SUPABASE_URL=http://localhost:54321
-VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
-```
+## Lisensi
 
-Jalankan migration + seed:
-
-```bash
-supabase db reset
-```
-
-## Menjalankan Frontend
-
-Install dependency jika belum:
-
-```bash
-npm install
-```
-
-Jalankan development server:
-
-```bash
-npm run dev
-```
-
-Buka:
-
-- Frontend: [http://localhost:5173](http://localhost:5173)
-- Supabase Studio: [http://localhost:54323](http://localhost:54323)
-
-## Onboarding & Multi-Tenant SaaS
-
-ZeePOS adalah platform POS multi-tenant. Setiap toko memiliki data (produk, stok, transaksi, kasir, laporan) yang terisolasi 100% menggunakan PostgreSQL Row Level Security (RLS).
-
-### Cara Mendaftar Toko Baru
-1. Buka aplikasi di `/register`.
-2. Masukkan email, password, nama toko, dan username pemilik.
-3. Akun Admin dan Toko otomatis dibuat secara atomik dan langsung aktif.
-
-### Cara Menambah Akun Kasir / Staf
-1. Login sebagai Admin toko.
-2. Buka menu **Pengaturan > Pengguna**.
-3. Klik tombol **+ Tambah Kasir / Staf**.
-4. Masukkan nama, email, username, password, dan pilih role (`kasir` atau `admin`).
-5. Akun kasir langsung aktif dan dapat langsung digunakan login tanpa membuka database manual.
-6. Admin juga dapat mereset password atau menonaktifkan kasir kapan saja.
-
-## Storage Bucket Produk
-
-Bucket `products` sekarang dibuat otomatis lewat migration, termasuk policy akses gambar publik dan upload khusus admin.
-
-## Urutan Setup yang Disarankan
-
-1. `colima start`
-2. `supabase start`
-3. Copy `ANON_KEY` ke `.env.local`
-4. `supabase db reset`
-5. Buka Supabase Studio dan buat user admin + kasir
-6. Tambahkan row ke tabel `profiles`
-7. `npm run dev`
-8. Login ke aplikasi
-
-## Struktur Folder Penting
-
-```text
-src/
-  api/
-  components/
-  hooks/
-  lib/
-  pages/
-  stores/
-  types/
-  utils/
-supabase/
-  migrations/
-  seed.sql
-```
-
-## Script Penting
-
-```bash
-npm run dev
-npm run build
-npm run lint
-supabase link --project-ref YOUR_PROJECT_REF
-supabase db push --include-seed
-supabase start
-supabase db reset
-bash scripts/reset-uat-cloud.sh YOUR_DB_PASSWORD
-```
-
-## Catatan
-
-- Function laporan `get_sales_by_date` ada di migration `002_reports_functions.sql`, jadi setelah update migration jalankan lagi `supabase db reset`.
-- Untuk operasi admin Auth seperti `createUser` atau `updateUserById`, aplikasi client ini sengaja tidak memakai `service_role` demi keamanan. Gunakan Supabase Studio untuk pembuatan user baru.
-- Untuk go-live di cloud, lihat checklist di `DEPLOY_CHECKLIST.md`.
-- Untuk mengosongkan data testing di Supabase Cloud tanpa setup ulang project, jalankan `bash scripts/reset-uat-cloud.sh YOUR_DB_PASSWORD`. Script ini mempertahankan akun default `admin@zeepos.com` dan `kasir1@zeepos.com`, menghapus data operasional, mengembalikan `store_settings` ke seed awal, dan membersihkan foto produk di bucket `products`.
+Didistribusikan untuk operasional ZeePOS. Seluruh hak cipta dilindungi.
