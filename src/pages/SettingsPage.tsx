@@ -117,9 +117,9 @@ export function SettingsPage() {
       ppn_persen: ppnPersen,
     })
     resetPaymentForm({
-      payment_qris_label: settings.payment_qris_label ?? 'QRIS Tara Plastic',
+      payment_qris_label: settings.payment_qris_label ?? 'QRIS Toko',
       payment_transfer_label: settings.payment_transfer_label ?? 'Transfer Bank',
-      payment_transfer_account_name: settings.payment_transfer_account_name ?? 'Tara Plastic',
+      payment_transfer_account_name: settings.payment_transfer_account_name ?? '',
       payment_transfer_account_number: settings.payment_transfer_account_number ?? '',
       payment_transfer_bank: settings.payment_transfer_bank ?? '',
       payment_whatsapp_number: settings.payment_whatsapp_number ?? '',
@@ -477,7 +477,7 @@ export function SettingsPage() {
                     </div>
                     <div>
                       <h3 className="font-extrabold text-[#1b1e20]">
-                        {settings.nama_toko ?? 'Tara Plastic'}
+                        {settings.nama_toko ?? 'Toko Anda'}
                       </h3>
                       <p className="text-sm text-[#52627d]">
                         {settings.no_telp ?? '0812-3456-7890'}

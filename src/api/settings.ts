@@ -27,7 +27,7 @@ export async function updateSettings(data: SettingsMap): Promise<StoreSetting[]>
 
   const { data: response, error } = await supabase
     .from('store_settings')
-    .upsert(payload, { onConflict: 'key' })
+    .upsert(payload, { onConflict: 'tenant_id,key' })
     .select('*')
 
   if (error) {

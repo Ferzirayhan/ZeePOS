@@ -11,7 +11,7 @@ export function RouteLoader() {
           </div>
           <div>
             <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#0a7c72]">
-              Tara Plastic
+              ZeePOS
             </p>
             <p className="mt-1 text-sm text-[#7d8987]">Memuat halaman...</p>
           </div>

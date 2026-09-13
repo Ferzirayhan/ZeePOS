@@ -42,7 +42,7 @@ const paymentMethods = [
 ] as const
 
 function getPreviewNomorNota() {
-  return `TRP-${format(new Date(), 'yyyyMMdd')}-...`
+  return `NOTA-${format(new Date(), 'yyyyMMdd')}-...`
 }
 
 function isBarcodeQuery(value: string) {

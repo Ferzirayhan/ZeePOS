@@ -3,6 +3,7 @@ import { PWAInstallPrompt } from '../app/PWAInstallPrompt'
 import { Outlet } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { useUIStore } from '../../stores/uiStore'
+import { useSettings } from '../../hooks/useSettings'
 import { Sidebar } from './Sidebar'
 import { ToastViewport } from '../ui/Toast'
 import { cn } from '../../utils/cn'
@@ -12,7 +13,9 @@ export function AppLayout() {
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed)
   const toggleMobileSidebar = useUIStore((state) => state.toggleMobileSidebar)
   const user = useAuthStore((state) => state.user)
-  const initial = (user?.nama ?? 'R').charAt(0).toUpperCase()
+  const { settings } = useSettings()
+  const storeName = settings.nama_toko || 'ZeePOS'
+  const initial = (user?.nama ?? storeName).charAt(0).toUpperCase()
 
   return (
     <div
@@ -38,10 +41,10 @@ export function AppLayout() {
 
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-2.5">
-              <BrandMark size="sm" className="shadow-[0_8px_18px_rgba(10,124,114,0.14)]" />
+              <BrandMark size="sm" text={storeName} className="shadow-[0_8px_18px_rgba(10,124,114,0.14)]" />
               <div className="min-w-0">
                 <p className="truncate text-[14px] font-extrabold tracking-[-0.03em] text-[#0a7c72]">
-                  Tara Plastic
+                  {storeName}
                 </p>
                 <p className="truncate text-[10px] font-medium uppercase tracking-[0.12em] text-[#8b9895]">
                   {user?.nama ?? 'Management System'}

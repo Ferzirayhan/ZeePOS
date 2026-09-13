@@ -10,8 +10,11 @@ interface AuthState {
   initialized: boolean
   error: string | null
   isAdmin: boolean
+  needsOnboarding: boolean
   initialize: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
+  signup: (email: string, password: string) => Promise<void>
+  registerTenant: (tenantName: string, tenantSlug: string, userName: string, username: string) => Promise<void>
   logout: () => Promise<void>
   getProfile: (userId?: string) => Promise<Profile | null>
   clearError: () => void
@@ -26,6 +29,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialized: false,
   error: null,
   isAdmin: false,
+  needsOnboarding: false,
 
   initialize: async () => {
     if (get().initialized) {
@@ -57,6 +61,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       session,
       user: profile,
       isAdmin: profile?.role === 'admin',
+      needsOnboarding: session != null && !profile,
       loading: false,
       initialized: true,
     })
@@ -73,6 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               session: nextSession,
               user: nextProfile,
               isAdmin: nextProfile?.role === 'admin',
+              needsOnboarding: nextSession != null && !nextProfile,
               loading: false,
               initialized: true,
             })
@@ -109,6 +115,53 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       session: data.session,
       user: profile,
       isAdmin: profile?.role === 'admin',
+      needsOnboarding: data.session != null && !profile,
+      loading: false,
+      error: null,
+    })
+  },
+
+  signup: async (email, password) => {
+    set({ loading: true, error: null })
+
+    const { data, error } = await supabase.auth.signUp({ email, password })
+
+    if (error) {
+      set({ loading: false, error: error.message })
+      throw error
+    }
+
+    set({
+      session: data.session,
+      user: null,
+      isAdmin: false,
+      needsOnboarding: true,
+      loading: false,
+      error: null,
+    })
+  },
+
+  registerTenant: async (tenantName, tenantSlug, userName, username) => {
+    set({ loading: true, error: null })
+
+    const { error } = await supabase.rpc('register_tenant', {
+      p_tenant_name: tenantName,
+      p_tenant_slug: tenantSlug,
+      p_user_name: userName,
+      p_username: username,
+    })
+
+    if (error) {
+      set({ loading: false, error: error.message })
+      throw error
+    }
+
+    const profile = await get().getProfile()
+
+    set({
+      user: profile,
+      isAdmin: profile?.role === 'admin',
+      needsOnboarding: false,
       loading: false,
       error: null,
     })
@@ -128,6 +181,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       session: null,
       user: null,
       isAdmin: false,
+      needsOnboarding: false,
       loading: false,
       error: null,
     })

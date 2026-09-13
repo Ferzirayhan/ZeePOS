@@ -40,7 +40,7 @@ export function ReceiptModal({
     }
 
     const lines = [
-      settings.nama_toko || 'Toko Plastik Ratih',
+      settings.nama_toko || 'Toko',
       `No. Nota: ${transaction.nomor_nota}`,
       `Kasir: ${cashier?.nama ?? '-'}`,
       '',

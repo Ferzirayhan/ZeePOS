@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { BrandMark } from '../components/app/BrandMark'
 import { useAuthStore } from '../stores/authStore'
@@ -13,11 +13,6 @@ const loginSchema = z.object({
 })
 
 type LoginFormValues = z.infer<typeof loginSchema>
-
-const quickAccounts = [
-  { label: 'Admin', email: 'admin@ratih.com' },
-  { label: 'Kasir', email: 'kasir1@ratih.com' },
-]
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -37,7 +32,6 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -75,18 +69,18 @@ export function LoginPage() {
             <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:56px_56px] opacity-35" />
             <div className="relative z-10">
               <div className="flex items-center gap-3 text-[15px] font-bold">
-                <BrandMark size="sm" inverted />
-                <span>Tara Plastic</span>
+                <BrandMark size="sm" inverted text="ZEE" />
+                <span>ZeePOS</span>
               </div>
             </div>
 
             <div className="relative z-10">
               <h1 className="max-w-md text-[52px] font-extrabold leading-[1.05] tracking-[-0.03em]">
-                Solusi Manajemen Toko Plastik Modern.
+                Sistem Kasir Modern untuk Toko Anda.
               </h1>
               <p className="mt-6 max-w-md text-[17px] leading-8 text-white/80">
-                Kelola stok, transaksi kasir, dan laporan keuangan dalam satu platform
-                yang intuitif dan responsif.
+                Kelola stok, transaksi kasir, dan laporan keuangan toko dalam satu platform
+                yang cepat dan mudah digunakan.
               </p>
             </div>
 
@@ -106,21 +100,8 @@ export function LoginPage() {
                   Selamat Datang
                 </h2>
                 <p className="mt-3 text-sm font-medium text-[#7b8785]">
-                  Sistem Kasir Tara Plastic
+                  Masuk ke akun kasir atau pemilik toko
                 </p>
-              </div>
-
-              <div className="mt-8 flex flex-wrap gap-2">
-                {quickAccounts.map((account) => (
-                  <button
-                    key={account.email}
-                    type="button"
-                    onClick={() => setValue('email', account.email, { shouldValidate: true })}
-                    className="rounded-full bg-[#f4fffc] px-3 py-2 text-xs font-bold text-[#0a7c72] transition-colors hover:bg-[#e7f8f6]"
-                  >
-                    {account.label}
-                  </button>
-                ))}
               </div>
 
               <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
@@ -208,6 +189,13 @@ export function LoginPage() {
                   <span>{loading || isSubmitting ? 'Memproses...' : 'Masuk'}</span>
                   <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                 </button>
+
+                <p className="text-center text-sm text-[#7b8785]">
+                  Belum punya toko?{' '}
+                  <Link to="/register" className="font-bold text-[#0a7c72] hover:underline">
+                    Daftar Sekarang
+                  </Link>
+                </p>
               </form>
 
             </div>

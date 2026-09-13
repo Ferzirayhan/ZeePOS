@@ -4,6 +4,7 @@ interface BrandMarkProps {
   size?: 'sm' | 'md' | 'lg'
   inverted?: boolean
   className?: string
+  text?: string
 }
 
 const sizeClasses = {
@@ -12,7 +13,9 @@ const sizeClasses = {
   lg: 'h-14 w-14 rounded-[18px] text-[16px]',
 }
 
-export function BrandMark({ size = 'md', inverted = false, className }: BrandMarkProps) {
+export function BrandMark({ size = 'md', inverted = false, className, text }: BrandMarkProps) {
+  const display = text ? text.slice(0, 3).toUpperCase() : 'ZEE'
+
   return (
     <div
       className={cn(
@@ -27,9 +30,8 @@ export function BrandMark({ size = 'md', inverted = false, className }: BrandMar
     >
       <span className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.26),transparent_48%)]" />
       <span className="absolute inset-x-0 top-0 h-px bg-white/30" />
-      <span className="relative flex items-center gap-[1px]">
-        <span>T</span>
-        <span className={cn('opacity-80', size === 'sm' ? 'text-[10px]' : 'text-[11px]')}>P</span>
+      <span className="relative flex items-center justify-center">
+        <span>{display}</span>
       </span>
     </div>
   )

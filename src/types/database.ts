@@ -16,6 +16,7 @@ export interface Database {
           username: string
           role: UserRole | null
           is_active: boolean | null
+          tenant_id: string | null
           created_at: string | null
           updated_at: string | null
         }
@@ -25,6 +26,7 @@ export interface Database {
           username: string
           role?: UserRole | null
           is_active?: boolean | null
+          tenant_id?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -34,6 +36,7 @@ export interface Database {
           username?: string
           role?: UserRole | null
           is_active?: boolean | null
+          tenant_id?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -446,6 +449,18 @@ export interface Database {
       }
     }
     Functions: {
+      register_tenant: {
+        Args: {
+          p_tenant_name: string
+          p_tenant_slug: string
+          p_user_name: string
+          p_username: string
+        }
+        Returns: {
+          tenant_id: string
+          profile_id: string
+        }
+      }
       create_transaction_atomic: {
         Args: {
           p_items: string

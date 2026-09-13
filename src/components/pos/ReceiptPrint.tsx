@@ -73,10 +73,10 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(
         }}
       >
         <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
-          {settings.nama_toko || 'Tara Plastic'}
+          {settings.nama_toko || 'Toko'}
         </div>
         <div style={{ textAlign: 'center', fontSize: '11px', whiteSpace: 'pre-line', marginBottom: '8px' }}>
-          {settings.header_struk || 'Tara Plastic'}
+          {settings.header_struk || 'Struk Pembelian'}
         </div>
         
         <hr style={{ borderTop: '1px dashed black', borderBottom: 'none', margin: '8px 0' }} />

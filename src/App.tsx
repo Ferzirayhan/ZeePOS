@@ -11,6 +11,7 @@ import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { POSPage } from './pages/POSPage'
 import { ProductsPage } from './pages/ProductsPage'
+import { RegisterPage } from './pages/RegisterPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { StockPage } from './pages/StockPage'
@@ -22,6 +23,7 @@ function App() {
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route
               element={

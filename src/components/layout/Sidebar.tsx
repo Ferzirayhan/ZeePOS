@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { getDashboardStats } from '../../api/reports'
 import { useAuthStore } from '../../stores/authStore'
 import { useUIStore } from '../../stores/uiStore'
+import { useSettings } from '../../hooks/useSettings'
 import { cn } from '../../utils/cn'
 import { BrandMark } from '../app/BrandMark'
 import { Badge } from '../ui/Badge'
@@ -33,7 +34,10 @@ export function Sidebar() {
   const mobileSidebarOpen = useUIStore((state) => state.mobileSidebarOpen)
   const toggleSidebar = useUIStore((state) => state.toggleSidebar)
   const setMobileSidebarOpen = useUIStore((state) => state.setMobileSidebarOpen)
+  const { settings } = useSettings()
   const [lowStockCount, setLowStockCount] = useState<number>(0)
+
+  const storeName = settings.nama_toko || 'ZeePOS'
 
   useEffect(() => {
     void (async () => {
@@ -73,10 +77,10 @@ export function Sidebar() {
       <div className={cn('flex items-start justify-between px-1 md:px-0', desktopCollapsed ? 'md:px-0.5' : 'md:px-3')}>
         <div className={cn(desktopCollapsed ? 'md:hidden' : '')}>
           <div className="flex items-center gap-2.5">
-            <BrandMark size="sm" className="shadow-[0_8px_18px_rgba(10,124,114,0.14)]" />
+            <BrandMark size="sm" text={storeName} className="shadow-[0_8px_18px_rgba(10,124,114,0.14)]" />
             <div>
               <p className="text-[13px] font-extrabold leading-none tracking-[-0.02em] text-[#0a7c72]">
-                Tara Plastic
+                {storeName}
               </p>
               <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-[#8b9895]">
                 Management System

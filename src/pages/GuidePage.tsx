@@ -428,7 +428,7 @@ export function GuidePage() {
             <div>
               <h2 className="text-[20px] font-extrabold text-[#1b1e20]">Aturan Aman dan Kontrol</h2>
               <p className="mt-1 text-sm text-[#8b9895]">
-                Bagian ini penting supaya Ratih tahu apa yang memang bisa diawasi dari sistem dan apa yang tetap perlu disiplin operasional.
+                Bagian ini penting supaya pemilik toko tahu apa yang memang bisa diawasi dari sistem dan apa yang tetap perlu disiplin operasional.
               </p>
             </div>
             <div className="grid gap-4 xl:grid-cols-2">
