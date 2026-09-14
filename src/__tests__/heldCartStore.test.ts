@@ -43,7 +43,7 @@ describe('heldCartStore — customer state round-trip', () => {
     expect(held?.customer_nama).toBe('Budi')
   })
 
-  it('resumeHeldCart mengembalikan customer_id dan customer_nama', () => {
+  it('resumeHeldCart mengembalikan customer_id dan customer_nama', async () => {
     const id = useHeldCartStore.getState().holdCurrentCart({
       label: 'Pesanan #1',
       items: [baseItem()],
@@ -56,9 +56,26 @@ describe('heldCartStore — customer state round-trip', () => {
       customer_nama: 'Budi',
     })
 
-    const resumed = useHeldCartStore.getState().resumeHeldCart(id)
+    const resumed = await useHeldCartStore.getState().resumeHeldCart(id)
     expect(resumed?.customer_id).toBe(42)
     expect(resumed?.customer_nama).toBe('Budi')
+  })
+
+  it('resumeHeldCart bersifat claim-once: klaim kedua untuk cart yang sama gagal', async () => {
+    const id = useHeldCartStore.getState().holdCurrentCart({
+      label: 'Pesanan #1',
+      items: [baseItem()],
+      diskon_persen: 0,
+      use_ppn: false,
+      ppn_persen: 0,
+      metode_bayar: 'tunai',
+      total: 20000,
+    })
+
+    const first = await useHeldCartStore.getState().resumeHeldCart(id)
+    const second = await useHeldCartStore.getState().resumeHeldCart(id)
+    expect(first).not.toBeNull()
+    expect(second).toBeNull()
   })
 
   it('holdCurrentCart tanpa pelanggan menyimpan null', () => {

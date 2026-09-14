@@ -492,7 +492,7 @@ export function POSPage() {
     })
   }
 
-  const handleResumeHeldCart = (held: HeldCart) => {
+  const handleResumeHeldCart = async (held: HeldCart) => {
     if (items.length > 0) {
       pushToast({
         title: 'Keranjang Sedang Berisi Item',
@@ -502,8 +502,8 @@ export function POSPage() {
       return
     }
 
-    // Ambil sekaligus hapus dari daftar antrean parkir (atomic resume)
-    const resumed = resumeHeldCart(held.id)
+    // Ambil sekaligus hapus dari daftar antrean parkir (klaim atomik lintas tab)
+    const resumed = await resumeHeldCart(held.id)
 
     if (!resumed) {
       pushToast({
@@ -649,6 +649,17 @@ export function POSPage() {
         description: 'Nominal uang diterima masih di bawah total pembayaran.',
         variant: 'warning',
       })
+      return
+    }
+
+    // Guard shift: checkout tunai wajib lewat shift kasir aktif (server juga memvalidasi).
+    if (metode_bayar === 'tunai' && !activeShift) {
+      pushToast({
+        title: 'Shift kasir belum dibuka',
+        description: 'Buka shift terlebih dahulu sebelum melakukan transaksi tunai.',
+        variant: 'warning',
+      })
+      setIsOpenShiftModal(true)
       return
     }
 

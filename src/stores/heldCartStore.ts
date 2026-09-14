@@ -30,10 +30,14 @@ interface HeldCartStore {
   heldCarts: HeldCart[]
   setActiveTenant: (tenantId: string | null) => void
   holdCurrentCart: (payload: HoldPayload) => string
-  resumeHeldCart: (id: string) => HeldCart | null
+  resumeHeldCart: (id: string) => Promise<HeldCart | null>
   deleteHeldCart: (id: string) => void
   clearAllHeldCarts: () => void
   clearForLogout: () => void
+}
+
+function supportsWebLocks(): boolean {
+  return typeof navigator !== 'undefined' && typeof navigator.locks?.request === 'function'
 }
 
 function safeStorage(): Storage {
@@ -77,35 +81,58 @@ export const useHeldCartStore = create<HeldCartStore>()(
         return id
       },
 
-      resumeHeldCart: (id) => {
+      resumeHeldCart: async (id) => {
         const tenantId = get().activeTenantId
         if (!tenantId) return null
 
-        // Baca langsung dari storage lokal terkini untuk menghindari race condition antar tab
-        try {
-          const raw = localStorage.getItem('zeepos_held_carts')
-          if (raw) {
-            const parsed = JSON.parse(raw)
-            const storageCarts = parsed?.state?.cartsByTenant?.[tenantId] ?? []
-            const storageTarget = storageCarts.find((c: HeldCart) => c.id === id)
-            if (!storageTarget) {
-              // Sudah di-resume oleh tab lain!
-              const current = (get().cartsByTenant[tenantId] ?? []).filter((c) => c.id !== id)
-              set((state) => ({ cartsByTenant: { ...state.cartsByTenant, [tenantId]: current }, heldCarts: current }))
-              return null
-            }
+        // Klaim atomik lintas tab: storage persist adalah sumber kebenaran bersama,
+        // memory state hanya cache. Web Locks memberi mutual exclusion antar tab;
+        // tanpa Web Locks, read-storage-first tetap mempersempit jendela race.
+        const claimHeldCart = async (): Promise<HeldCart | null> => {
+          let storageCarts: HeldCart[] = []
+          try {
+            const raw = safeStorage().getItem('zeepos_held_carts')
+            const parsed = raw ? JSON.parse(raw) : null
+            storageCarts = parsed?.state?.cartsByTenant?.[tenantId] ?? []
+          } catch {
+            storageCarts = []
           }
-        } catch {
-          // fallback ke state memory
+
+          const memoryCarts = get().cartsByTenant[tenantId] ?? []
+          // Storage lebih dipercaya; memory hanya fallback jika storage kosong/rusak
+          const source = storageCarts.length > 0 ? storageCarts : memoryCarts
+          const target = source.find((cart) => cart.id === id && cart.tenant_id === tenantId) ?? null
+
+          if (!target) {
+            // Sudah diklaim tab lain atau sudah dihapus — singkirkan dari memory agar UI sinkron
+            const current = memoryCarts.filter((cart) => cart.id !== id)
+            if (current.length !== memoryCarts.length) {
+              set((state) => ({ cartsByTenant: { ...state.cartsByTenant, [tenantId]: current }, heldCarts: current }))
+            }
+            return null
+          }
+
+          const next = source.filter((cart) => cart.id !== id)
+
+          // Tulis storage dulu (truth lintas tab), lalu sinkronkan memory
+          try {
+            const raw = safeStorage().getItem('zeepos_held_carts')
+            const parsed = raw ? JSON.parse(raw) : null
+            const byTenant = { ...(parsed?.state?.cartsByTenant ?? {}), [tenantId]: next }
+            safeStorage().setItem('zeepos_held_carts', JSON.stringify({ state: { cartsByTenant: byTenant }, version: 2 }))
+          } catch {
+            // Gagal menulis storage: jangan klaim — return null agar tidak diproses dua kali
+            return null
+          }
+
+          set((state) => ({ cartsByTenant: { ...state.cartsByTenant, [tenantId]: next }, heldCarts: next }))
+          return target
         }
 
-        const current = get().cartsByTenant[tenantId] ?? []
-        const target = current.find((cart) => cart.id === id && cart.tenant_id === tenantId) ?? null
-        if (target) {
-          const next = current.filter((cart) => cart.id !== id)
-          set((state) => ({ cartsByTenant: { ...state.cartsByTenant, [tenantId]: next }, heldCarts: next }))
+        if (supportsWebLocks()) {
+          return navigator.locks.request(`zeepos_held_carts:${tenantId}`, claimHeldCart)
         }
-        return target
+        return claimHeldCart()
       },
 
       deleteHeldCart: (id) => {
