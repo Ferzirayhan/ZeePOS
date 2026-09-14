@@ -136,6 +136,7 @@ export function POSPage() {
   const [confirmTarget, setConfirmTarget] = useState<TransactionWithKasir | null>(null)
   const [cancelTarget, setCancelTarget] = useState<TransactionWithKasir | null>(null)
   const [paymentReference, setPaymentReference] = useState('')
+  const [orderNote, setOrderNote] = useState('')
   const [cancelReason, setCancelReason] = useState('')
   const [mobileSection, setMobileSection] = useState<'produk' | 'keranjang' | 'pending'>('produk')
 
@@ -781,6 +782,7 @@ export function POSPage() {
         uangDiterima: metode_bayar === 'tunai' ? uang_diterima : null,
         kembalian: metode_bayar === 'tunai' ? kembalian : 0,
         customerId: selectedCustomer?.id ?? null,
+        catatan: orderNote.trim() || null,
         idempotencyKey,
       })
 
@@ -853,6 +855,7 @@ export function POSPage() {
       lastCheckoutFingerprintRef.current = null
       setSelectedCustomer(null)
       setSearchQuery('')
+      setOrderNote('')
       setPpnPersen(Number(settings.ppn_persen ?? 0))
       searchInputRef.current?.focus()
 
@@ -1805,7 +1808,7 @@ export function POSPage() {
                 const val = e.target.value.replace(/\D/g, '')
                 setShiftPengeluaran(val ? Number(val).toLocaleString('id-ID') : '')
               }}
-              className="mt-2 h-12 w-full rounded-[14px] bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
+              className="mt-2 h-12 w-full rounded-[14px] bg-[#f1f3f5] px-4 text-sm font-bold text-[#1b1e20] outline-none focus:ring-2 focus:ring-[#2563eb]/15"
             />
           </div>
 
@@ -1858,6 +1861,8 @@ export function POSPage() {
         isProcessing={processingPayment}
         settings={settings}
         customerName={selectedCustomer?.nama}
+        catatan={orderNote}
+        onCatatanChange={setOrderNote}
       />
 
       {/* Modal Barcode Scanner Kamera (F8) */}

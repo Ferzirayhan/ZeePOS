@@ -171,7 +171,7 @@ export function LandingPage() {
   const currentSolution = businessSolutions[activeTab]
 
   return (
-    <div className="min-h-screen bg-[#fafbfa] text-[#1f2937] font-sans antialiased">
+    <div className="min-h-screen scroll-smooth bg-[#fafbfa] text-[#1f2937] font-sans antialiased">
       {/* Top Navbar */}
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-8">
@@ -455,7 +455,7 @@ export function LandingPage() {
       </section>
 
       {/* Solutions Tab Section */}
-      <section id="solusi" className="border-t border-slate-200/80 bg-white py-20 sm:py-28">
+      <section id="solusi" className="scroll-mt-24 border-t border-slate-200/80 bg-white py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-8">
           <div className="mx-auto max-w-3xl text-center space-y-3">
             <span className="rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-[#2563eb] border border-emerald-100">
@@ -553,8 +553,76 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* Cara Mulai — 3 Langkah */}
+      <section className="border-t border-slate-200/80 bg-white py-20 sm:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-8">
+          <div className="mx-auto max-w-3xl text-center space-y-3">
+            <span className="rounded-full bg-blue-50 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-[#2563eb] border border-blue-100">
+              Mulai dalam Hitungan Menit
+            </span>
+            <h2 className="font-display text-3xl sm:text-5xl font-black tracking-tight text-[#1f2937]">
+              Tiga langkah, langsung jualan.
+            </h2>
+            <p className="text-base sm:text-lg text-slate-600 font-medium">
+              Tanpa instalasi, tanpa mesin khusus — cukup browser dan Anda sudah siap melayani pelanggan pertama.
+            </p>
+          </div>
+
+          <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {[
+              {
+                step: '1',
+                icon: 'app_registration',
+                title: 'Daftarkan Toko Anda',
+                desc: 'Isi nama toko dan email. Akun pemilik langsung aktif dengan akses dashboard penuh.',
+              },
+              {
+                step: '2',
+                icon: 'category',
+                title: 'Isi Katalog & Stok',
+                desc: 'Tambah produk dengan satuan, harga jual, dan HPP. Scan barcode atau input manual — katalog siap dipakai kasir.',
+              },
+              {
+                step: '3',
+                icon: 'point_of_sale',
+                title: 'Buka Shift & Jualan',
+                desc: 'Set modal kas awal, lakukan transaksi tunai/QRIS/transfer, lalu tutup shift dengan rekap uang fisik yang terverifikasi.',
+              },
+            ].map((item, idx) => (
+              <div key={item.step} className="relative rounded-3xl border border-slate-200/80 bg-[#fafbfa] p-7 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2563eb] text-white shadow-md shadow-blue-500/20">
+                    <span className="material-symbols-outlined text-2xl">{item.icon}</span>
+                  </div>
+                  <span className="font-display text-5xl font-black text-slate-100 select-none">
+                    {item.step}
+                  </span>
+                </div>
+                <h3 className="mt-5 font-display text-lg font-black text-[#1f2937]">{item.title}</h3>
+                <p className="mt-2 text-sm font-medium leading-relaxed text-slate-600">{item.desc}</p>
+                {idx < 2 && (
+                  <span className="material-symbols-outlined absolute -right-4 top-1/2 hidden -translate-y-1/2 text-2xl text-slate-300 md:block">
+                    arrow_forward_ios
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 text-center">
+            <Link
+              to="/register"
+              className="inline-flex items-center gap-2 rounded-2xl bg-[#2563eb] px-7 py-3.5 font-display text-sm font-black text-white shadow-md shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] hover:-translate-y-0.5"
+            >
+              Coba Sekarang, Gratis 7 Hari
+              <span className="material-symbols-outlined text-base">arrow_forward</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Features Grid */}
-      <section id="fitur" className="border-t border-slate-200/80 bg-[#fafbfa] py-20 sm:py-28">
+      <section id="fitur" className="scroll-mt-24 border-t border-slate-200/80 bg-[#fafbfa] py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-8">
           <div className="mx-auto max-w-3xl text-center space-y-3">
             <span className="rounded-full bg-slate-100 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-slate-600 border border-slate-200">
@@ -591,7 +659,7 @@ export function LandingPage() {
       </section>
 
       {/* FAQ Section */}
-      <section id="faq" className="border-t border-slate-200/80 bg-white py-20 sm:py-28">
+      <section id="faq" className="scroll-mt-24 border-t border-slate-200/80 bg-white py-20 sm:py-28">
         <div className="mx-auto max-w-4xl px-4 sm:px-8">
           <div className="text-center space-y-3">
             <span className="rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-[#2563eb] border border-emerald-100">

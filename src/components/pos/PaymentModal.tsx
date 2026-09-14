@@ -18,6 +18,8 @@ interface PaymentModalProps {
   isProcessing: boolean
   settings: Record<string, string>
   customerName?: string | null
+  catatan: string
+  onCatatanChange: (val: string) => void
 }
 
 export function PaymentModal({
@@ -36,6 +38,8 @@ export function PaymentModal({
   isProcessing,
   settings,
   customerName,
+  catatan,
+  onCatatanChange,
 }: PaymentModalProps) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -321,6 +325,26 @@ export function PaymentModal({
             </div>
           </div>
         )}
+
+        {/* Catatan Pesanan (nomor meja / instruksi dapur / referensi order online) */}
+        <div className="pt-2">
+          <label htmlFor="payment-order-note" className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+            Catatan Pesanan (opsional)
+          </label>
+          <input
+            id="payment-order-note"
+            type="text"
+            value={catatan}
+            onChange={(e) => onCatatanChange(e.target.value)}
+            maxLength={200}
+            disabled={isProcessing}
+            placeholder="Contoh: Meja 4, less sugar, tanpa bawang"
+            className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-600 focus:bg-white disabled:opacity-60"
+          />
+          <p className="mt-1 text-[10px] font-medium text-slate-400">
+            Tercetak langsung pada struk pelanggan.
+          </p>
+        </div>
 
         {/* Action Buttons */}
         <div className="pt-2 flex items-center gap-3">
