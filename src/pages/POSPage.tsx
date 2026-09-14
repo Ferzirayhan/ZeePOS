@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   cancelPendingTransaction,
   confirmTransactionPayment,
-  createTransaction,
+  commitTransaction,
   getPendingTransactions,
 } from '../api/transactions'
 import {
@@ -504,21 +504,29 @@ export function POSPage() {
 
     // Ambil sekaligus hapus dari daftar antrean parkir (atomic resume)
     const resumed = resumeHeldCart(held.id)
-    const target = resumed || held
+
+    if (!resumed) {
+      pushToast({
+        title: 'Pesanan Tidak Tersedia',
+        description: 'Pesanan parkir mungkin sudah dilanjutkan di tab lain atau telah dihapus.',
+        variant: 'warning',
+      })
+      return
+    }
 
     restoreCart({
-      items: target.items,
-      diskon_persen: target.diskon_persen,
-      use_ppn: target.use_ppn,
-      ppn_persen: target.ppn_persen,
-      metode_bayar: target.metode_bayar,
+      items: resumed.items,
+      diskon_persen: resumed.diskon_persen,
+      use_ppn: resumed.use_ppn,
+      ppn_persen: resumed.ppn_persen,
+      metode_bayar: resumed.metode_bayar,
     })
 
-    if (target.customer_id) {
+    if (resumed.customer_id) {
       setSelectedCustomer({
-        id: target.customer_id,
+        id: resumed.customer_id,
         tenant_id: '',
-        nama: target.customer_nama ?? 'Pelanggan',
+        nama: resumed.customer_nama ?? 'Pelanggan',
         telepon: null,
         alamat: null,
         total_hutang: 0,
@@ -531,7 +539,7 @@ export function POSPage() {
 
     pushToast({
       title: 'Pesanan Dilanjutkan',
-      description: `${target.label} berhasil dimuat kembali ke tiket kasir.`,
+      description: `${resumed.label} berhasil dimuat kembali ke tiket kasir.`,
       variant: 'success',
     })
   }
@@ -676,7 +684,7 @@ export function POSPage() {
         }
       }
 
-      const result = await createTransaction({
+      const committed = await commitTransaction({
         items: items.map((item) => ({
           productId: item.product_id,
           namaProduk: item.nama_produk,
@@ -705,20 +713,59 @@ export function POSPage() {
       setIsPaymentModalOpen(false)
       audioFeedback.playSuccessChime()
 
-      if (result.transaction.payment_status === 'dibayar') {
-        setReceiptTransaction(result.transaction)
-        setReceiptItems(result.items)
+      const receiptTx: Transaction = {
+        id: committed.transaction_id,
+        nomor_nota: committed.nomor_nota,
+        kasir_id: user?.id ?? null,
+        subtotal: committed.subtotal,
+        diskon_persen: diskon_persen,
+        diskon_amount: committed.diskon_amount,
+        ppn_persen: ppn_persen,
+        ppn_amount: committed.ppn_amount,
+        total: committed.total,
+        metode_bayar,
+        uang_diterima: metode_bayar === 'tunai' ? uang_diterima : null,
+        kembalian: committed.kembalian,
+        catatan: null,
+        status: 'selesai',
+        payment_status: committed.payment_status,
+        paid_at: new Date().toISOString(),
+        payment_reference: null,
+        confirmed_by: null,
+        idempotency_key: idempotencyKey,
+        created_at: new Date().toISOString(),
+      }
+
+      const receiptItms: TransactionItem[] = items.map((item, idx) => ({
+        id: idx + 1,
+        transaction_id: committed.transaction_id,
+        product_id: item.product_id,
+        nama_produk: item.nama_produk,
+        harga_satuan: item.harga_satuan,
+        harga_beli: 0,
+        qty: item.qty,
+        subtotal: item.subtotal,
+        laba_kotor: null,
+        diskon_item_persen: item.diskon_item_persen ?? 0,
+        rasio: item.rasio ?? 1,
+        base_qty: item.qty * (item.rasio ?? 1),
+        nama_satuan: item.satuan ?? 'pcs',
+      }))
+
+      if (committed.payment_status === 'dibayar') {
+        setReceiptTransaction(receiptTx)
+        setReceiptItems(receiptItms)
         setReceiptOpen(true)
         pushToast({
           title: 'Pembayaran berhasil',
-          description: `Transaksi ${result.transaction.nomor_nota} tersimpan.`,
+          description: `Transaksi ${committed.nomor_nota} tersimpan.`,
           variant: 'success',
         })
       } else {
         setMobileSection('pending')
         pushToast({
           title: 'Transaksi disimpan',
-          description: `Transaksi ${result.transaction.nomor_nota} menunggu konfirmasi dana masuk.`,
+          description: `Transaksi ${committed.nomor_nota} menunggu konfirmasi dana masuk.`,
           variant: 'info',
         })
       }

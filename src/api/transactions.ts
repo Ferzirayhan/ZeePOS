@@ -174,9 +174,21 @@ export async function getTransactionById(
   }
 }
 
-export async function createTransaction(
+export interface CommittedTransactionResult {
+  transaction_id: number
+  nomor_nota: string
+  payment_status: PaymentStatus
+  subtotal: number
+  diskon_amount: number
+  ppn_amount: number
+  total: number
+  kembalian: number
+  idempotent?: boolean
+}
+
+export async function commitTransaction(
   payload: CreateTransactionInput,
-): Promise<TransactionDetail> {
+): Promise<CommittedTransactionResult> {
   if (payload.items.length === 0) {
     throw new Error('Keranjang transaksi tidak boleh kosong')
   }
@@ -225,7 +237,24 @@ export async function createTransaction(
     throw new Error('Sistem belum mengembalikan transaksi yang valid')
   }
 
-  return waitForTransactionDetail(transactionId, () => true)
+  return {
+    transaction_id: transactionId,
+    nomor_nota: String(data.nomor_nota ?? ''),
+    payment_status: data.payment_status,
+    subtotal: Number(data.subtotal ?? payload.subtotal),
+    diskon_amount: Number(data.diskon_amount ?? payload.diskonAmount ?? 0),
+    ppn_amount: Number(data.ppn_amount ?? payload.ppnAmount ?? 0),
+    total: Number(data.total ?? payload.total),
+    kembalian: Number(data.kembalian ?? payload.kembalian ?? 0),
+    idempotent: Boolean(data.idempotent),
+  }
+}
+
+export async function createTransaction(
+  payload: CreateTransactionInput,
+): Promise<TransactionDetail> {
+  const committed = await commitTransaction(payload)
+  return waitForTransactionDetail(committed.transaction_id, () => true)
 }
 
 export async function getPendingTransactions(): Promise<TransactionWithKasir[]> {

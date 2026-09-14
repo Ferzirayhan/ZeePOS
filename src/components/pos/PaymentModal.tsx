@@ -88,8 +88,15 @@ export function PaymentModal({
   }, [total])
 
   const isCashInsufficient = metodeBayar === 'tunai' && uangDiterima < total
-  const isTransferMissingConfig = metodeBayar === 'transfer' && !settings.payment_transfer_account_number
-  const isPaymentDisabled = isProcessing || isCashInsufficient || isTransferMissingConfig
+  const isTransferMissingConfig =
+    metodeBayar === 'transfer' &&
+    (!settings.payment_transfer_bank?.trim() ||
+      !settings.payment_transfer_account_number?.trim() ||
+      !settings.payment_transfer_account_name?.trim())
+  const isQrisMissingConfig =
+    metodeBayar === 'qris' && !settings.payment_qris_image_url?.trim()
+  const isPaymentDisabled =
+    isProcessing || isCashInsufficient || isTransferMissingConfig || isQrisMissingConfig
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === ' ' && metodeBayar === 'tunai') {
@@ -263,22 +270,22 @@ export function PaymentModal({
         {/* Konten Tab Transfer Bank */}
         {metodeBayar === 'transfer' && (
           <div className="space-y-4 py-2">
-            {settings.payment_transfer_account_number ? (
+            {!isTransferMissingConfig ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Rekening Tujuan</span>
                 <p className="font-display text-lg font-black text-slate-900">
-                  {settings.payment_transfer_bank || 'Bank'} • {settings.payment_transfer_account_number}
+                  {settings.payment_transfer_bank} • {settings.payment_transfer_account_number}
                 </p>
                 <p className="text-xs text-slate-600 font-medium">
-                  a.n. {settings.payment_transfer_account_name || 'Pemilik Toko'}
+                  a.n. {settings.payment_transfer_account_name}
                 </p>
               </div>
             ) : (
               <div className="rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/60 p-4 text-center space-y-1.5">
                 <span className="material-symbols-outlined text-3xl text-amber-500">account_balance</span>
-                <p className="text-xs font-bold text-amber-900">Rekening Bank Belum Diatur</p>
+                <p className="text-xs font-bold text-amber-900">Rekening Bank Belum Lengkap</p>
                 <p className="text-[11px] text-amber-700 max-w-[260px] mx-auto">
-                  Nomor rekening bank belum dikonfigurasi oleh admin di menu Pengaturan Toko.
+                  Nama bank, nomor rekening, dan nama pemilik wajib dikonfigurasi oleh admin di menu Pengaturan Toko.
                 </p>
               </div>
             )}

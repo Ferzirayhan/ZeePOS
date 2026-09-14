@@ -70,7 +70,7 @@ export async function payReceivable(payload: {
   jumlah: number
   metodeBayar?: string
   catatan?: string | null
-  idempotencyKey?: string | null
+  idempotencyKey: string
 }): Promise<{
   success: boolean
   payment_id: number
@@ -80,14 +80,16 @@ export async function payReceivable(payload: {
   status: string
   idempotent?: boolean
 }> {
-  const idempotencyKey = payload.idempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null)
+  if (!payload.idempotencyKey || !payload.idempotencyKey.trim()) {
+    throw new Error('Kunci idempotensi (idempotency key) wajib disertakan untuk mencegah pembayaran ganda')
+  }
 
   const { data, error } = await supabase.rpc('pay_receivable_atomic' as never, {
     p_receivable_id: payload.receivableId,
     p_jumlah: payload.jumlah,
     p_metode_bayar: payload.metodeBayar || 'tunai',
     p_catatan: payload.catatan || null,
-    p_idempotency_key: idempotencyKey,
+    p_idempotency_key: payload.idempotencyKey.trim(),
   } as never)
 
   if (error) {

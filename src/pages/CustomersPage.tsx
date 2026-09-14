@@ -31,6 +31,7 @@ export function CustomersPage() {
 
   // Modal Bayar Piutang
   const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null)
+  const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string>('')
   const [nominalBayar, setNominalBayar] = useState('')
   const [metodeBayar, setMetodeBayar] = useState('tunai')
   const [catatanBayar, setCatatanBayar] = useState('')
@@ -89,11 +90,31 @@ export function CustomersPage() {
     }
   }
 
+  const handleOpenPayModal = (r: Receivable) => {
+    setSelectedReceivable(r)
+    setNominalBayar(String(r.sisa_hutang))
+    setMetodeBayar('tunai')
+    setCatatanBayar('')
+    setPaymentIdempotencyKey(crypto.randomUUID())
+  }
+
+  const handleClosePayModal = () => {
+    setSelectedReceivable(null)
+    setNominalBayar('')
+    setCatatanBayar('')
+    setPaymentIdempotencyKey('')
+  }
+
   const handlePaySubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedReceivable) return
     const jumlah = Number(nominalBayar.replace(/\D/g, ''))
     if (jumlah <= 0) return
+
+    const keyToUse = paymentIdempotencyKey || crypto.randomUUID()
+    if (!paymentIdempotencyKey) {
+      setPaymentIdempotencyKey(keyToUse)
+    }
 
     try {
       setSubmittingPayment(true)
@@ -102,11 +123,10 @@ export function CustomersPage() {
         jumlah,
         metodeBayar,
         catatan: catatanBayar,
+        idempotencyKey: keyToUse,
       })
 
-      setSelectedReceivable(null)
-      setNominalBayar('')
-      setCatatanBayar('')
+      handleClosePayModal()
       pushToast({
         title: 'Pembayaran Piutang Berhasil',
         description: `Penerimaan Rp ${jumlah.toLocaleString('id-ID')} tersimpan. Status: ${res.status.toUpperCase()}`,
@@ -369,10 +389,7 @@ export function CustomersPage() {
                         {r.status !== 'lunas' ? (
                           <button
                             type="button"
-                            onClick={() => {
-                              setSelectedReceivable(r)
-                              setNominalBayar(String(r.sisa_hutang))
-                            }}
+                            onClick={() => handleOpenPayModal(r)}
                             className="px-3.5 py-1.5 rounded-xl bg-[#2563eb] text-white text-xs font-bold hover:bg-[#1d4ed8] transition shadow-sm"
                           >
                             Bayar Cicilan
@@ -479,20 +496,20 @@ export function CustomersPage() {
       </Modal>
 
       {/* Modal Bayar Piutang */}
-      <Modal open={Boolean(selectedReceivable)} onClose={() => setSelectedReceivable(null)} size="sm">
+      <Modal open={Boolean(selectedReceivable)} onClose={handleClosePayModal} size="sm">
         {selectedReceivable && (
           <form onSubmit={handlePaySubmit}>
-            <div className="bg-[#f8f9fa] p-5 border-b border-slate-200 flex items-center justify-between">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h3 className="font-display font-black text-slate-800 text-base">Bayar Cicilan Piutang</h3>
+                <h3 className="font-display font-black text-slate-900 text-lg">Bayar Tagihan Piutang</h3>
                 <p className="text-xs text-slate-500">Nota: {selectedReceivable.nomor_nota}</p>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedReceivable(null)}
-                className="w-8 h-8 rounded-xl bg-slate-200/80 hover:bg-slate-300 flex items-center justify-center text-slate-600 transition"
+                onClick={handleClosePayModal}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition"
               >
-                <span className="material-symbols-outlined text-lg">close</span>
+                ✕
               </button>
             </div>
 
@@ -555,7 +572,7 @@ export function CustomersPage() {
               <div className="pt-2 flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setSelectedReceivable(null)}
+                  onClick={handleClosePayModal}
                   className="flex-1 py-3.5 rounded-xl border border-slate-200 bg-white font-display text-sm font-bold text-slate-600 hover:bg-slate-50 transition"
                 >
                   Batal
