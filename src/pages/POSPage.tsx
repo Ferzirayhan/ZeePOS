@@ -561,7 +561,7 @@ export function POSPage() {
       }
     } catch {
       // Restore gagal: lepaskan klaim agar pesanan kembali tersedia, jangan sampai hilang
-      await rollbackResume(held.id)
+      await rollbackResume(held.id, resumed.claim_token)
       pushToast({
         title: 'Gagal Memuat Pesanan',
         description: 'Pesanan parkir tetap tersimpan dan bisa dilanjutkan kembali.',
@@ -570,8 +570,19 @@ export function POSPage() {
       return
     }
 
-    // Restore sukses: barulah pesanan dikeluarkan permanen dari daftar parkir
-    await acknowledgeResume(held.id)
+    // Restore sukses: barulah pesanan dikeluarkan permanen dari daftar parkir.
+    // Kegagalan persistence di sini TIDAK boleh menggagalkan restore — pesanan sudah
+    // aman di keranjang aktif; cukup informasikan bahwa entri parkir mungkin masih
+    // terlihat sampai klaimnya kedaluwarsa atau dihapus manual.
+    try {
+      await acknowledgeResume(held.id, resumed.claim_token)
+    } catch {
+      pushToast({
+        title: 'Entri parkir belum terhapus',
+        description: 'Pesanan sudah aktif di kasir. Entri parkir akan hilang otomatis atau bisa dihapus manual.',
+        variant: 'info',
+      })
+    }
 
     pushToast({
       title: 'Pesanan Dilanjutkan',
