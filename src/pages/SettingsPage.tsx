@@ -27,7 +27,20 @@ const taxSchema = z.object({
 
 const paymentSchema = z.object({
   payment_qris_label: z.string().trim().min(2, 'Label QRIS wajib diisi'),
-  payment_qris_image_url: z.string().trim().optional(),
+  payment_qris_image_url: z
+    .string()
+    .trim()
+    .refine(
+      (val) =>
+        !val ||
+        val.startsWith('data:image/') ||
+        val.startsWith('https://') ||
+        val.startsWith('/'),
+      {
+        message: 'URL QRIS harus berupa format gambar data URL (data:image/...) atau URL HTTPS',
+      },
+    )
+    .optional(),
   payment_transfer_label: z.string().trim().min(2, 'Label transfer wajib diisi'),
   payment_transfer_account_name: z.string().trim().min(2, 'Nama rekening wajib diisi'),
   payment_transfer_account_number: z.string().trim().min(3, 'Nomor rekening wajib diisi'),

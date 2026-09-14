@@ -123,6 +123,7 @@ export function POSPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
+  const checkoutIdempotencyKeyRef = useRef<string | null>(null)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [isHeldModalOpen, setIsHeldModalOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -652,9 +653,12 @@ export function POSPage() {
 
     processingPaymentRef.current = true
     setProcessingPayment(true)
-    // Buat idempotency key unik yang mengikat keranjang dan metode pembayaran terkini
-    const nonce = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now())
-    const idempotencyKey = `zeepos-${metode_bayar}-${nonce}`
+    // Gunakan key stabil selama modal terbuka; hanya buat baru jika belum ada
+    if (!checkoutIdempotencyKeyRef.current) {
+      const nonce = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now())
+      checkoutIdempotencyKeyRef.current = `zeepos-${nonce}`
+    }
+    const idempotencyKey = checkoutIdempotencyKeyRef.current
 
     try {
       const freshProducts = await getProducts({ isActive: true })
@@ -774,6 +778,7 @@ export function POSPage() {
       }
 
       clearCart()
+      checkoutIdempotencyKeyRef.current = null
       setSelectedCustomer(null)
       setSearchQuery('')
       setPpnPersen(Number(settings.ppn_persen ?? 0))

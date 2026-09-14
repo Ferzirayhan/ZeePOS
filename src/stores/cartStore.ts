@@ -42,11 +42,12 @@ interface CartStore extends CartState {
 function calculateCartState(state: Pick<CartStore, 'items' | 'diskon_persen' | 'use_ppn' | 'ppn_persen' | 'uang_diterima'>) {
   const subtotal = state.items.reduce((sum, item) => sum + item.subtotal, 0)
   const diskonAmount = Math.round(subtotal * (state.diskon_persen / 100))
-  const taxableAmount = Math.max(subtotal - diskonAmount, 0)
-  const ppnAmount = state.use_ppn ? Math.round(taxableAmount * (state.ppn_persen / 100)) : 0
-  const rawTotal = taxableAmount + ppnAmount
-  const total = roundSubtotal(rawTotal)
-  const kembalian = Math.max(state.uang_diterima - total, 0)
+  const taxableAmount = Math.max(0, subtotal - diskonAmount)
+  // PPN otomatis aktif jika ppn_persen > 0 (server-authoritative)
+  const isPpnActive = state.ppn_persen > 0 ? true : Boolean(state.use_ppn)
+  const ppnAmount = isPpnActive ? Math.round(taxableAmount * (state.ppn_persen / 100)) : 0
+  const total = taxableAmount + ppnAmount
+  const kembalian = Math.max(0, state.uang_diterima - total)
 
   return {
     subtotal,

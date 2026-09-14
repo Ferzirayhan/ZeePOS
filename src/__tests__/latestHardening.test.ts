@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import appSource from '../App.tsx?raw'
 import productsApiSource from '../api/products.ts?raw'
 import migration057 from '../../supabase/migrations/057_strict_financial_ledger_and_refunds.sql?raw'
-import migration058 from '../../supabase/migrations/058_atomic_discount_tiers.sql?raw'
+import migration059 from '../../supabase/migrations/059_atomic_discount_tiers.sql?raw'
 
 const compact = (source: string) => source.replace(/\s+/g, ' ')
 
@@ -29,7 +29,7 @@ describe('latest production hardening', () => {
   })
 
   it('replaces discount tiers through the tenant-scoped atomic RPC', () => {
-    const sql = compact(migration058)
+    const sql = compact(migration059)
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.replace_product_discount_tiers\([\s\S]*SECURITY DEFINER[\s\S]*public\.is_admin\(\)/i)
     expect(sql).toMatch(/WHERE id = p_product_id AND tenant_id = v_tenant_id FOR UPDATE/i)
     expect(sql).toMatch(/DELETE FROM public\.product_discount_tiers[\s\S]*INSERT INTO public\.product_discount_tiers/i)
