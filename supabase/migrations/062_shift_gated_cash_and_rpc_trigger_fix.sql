@@ -568,7 +568,7 @@ BEGIN
     FROM tmp_demand
     GROUP BY product_id
   LOOP
-    SELECT stok INTO v_product FROM public.products WHERE id = v_demand.product_id AND tenant_id = v_tenant_id FOR UPDATE;
+    SELECT id, nama, stok, harga_beli INTO v_product FROM public.products WHERE id = v_demand.product_id AND tenant_id = v_tenant_id FOR UPDATE;
 
     IF COALESCE(v_product.stok, 0) < v_demand.total_base_qty THEN
       RAISE EXCEPTION 'Stok untuk produk ID % tidak mencukupi (dibutuhkan % dasar, tersedia %)',
