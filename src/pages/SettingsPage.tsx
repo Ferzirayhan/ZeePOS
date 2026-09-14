@@ -27,6 +27,7 @@ const taxSchema = z.object({
 
 const paymentSchema = z.object({
   payment_qris_label: z.string().trim().min(2, 'Label QRIS wajib diisi'),
+  payment_qris_image_url: z.string().trim().optional(),
   payment_transfer_label: z.string().trim().min(2, 'Label transfer wajib diisi'),
   payment_transfer_account_name: z.string().trim().min(2, 'Nama rekening wajib diisi'),
   payment_transfer_account_number: z.string().trim().min(3, 'Nomor rekening wajib diisi'),
@@ -169,6 +170,7 @@ export function SettingsPage() {
     })
     resetPaymentForm({
       payment_qris_label: settings.payment_qris_label ?? 'QRIS Toko',
+      payment_qris_image_url: settings.payment_qris_image_url ?? '',
       payment_transfer_label: settings.payment_transfer_label ?? 'Transfer Bank',
       payment_transfer_account_name: settings.payment_transfer_account_name ?? '',
       payment_transfer_account_number: settings.payment_transfer_account_number ?? '',
@@ -605,6 +607,17 @@ export function SettingsPage() {
                     {paymentErrors.payment_qris_label ? (
                       <p className="mt-2 text-xs font-medium text-[#ba1a1a]">{paymentErrors.payment_qris_label.message}</p>
                     ) : null}
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]">
+                      URL Gambar / Kode QRIS
+                    </label>
+                    <input
+                      {...registerPayment('payment_qris_image_url')}
+                      placeholder="https://... atau data:image/..."
+                      className="mt-2 h-12 w-full rounded-[14px] border-none bg-[#f1f3f5] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
+                    />
                   </div>
 
                   <div>

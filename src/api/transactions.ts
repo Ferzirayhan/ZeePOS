@@ -183,6 +183,7 @@ export interface CommittedTransactionResult {
   ppn_amount: number
   total: number
   kembalian: number
+  items?: TransactionItem[]
   idempotent?: boolean
 }
 
@@ -237,16 +238,19 @@ export async function commitTransaction(
     throw new Error('Sistem belum mengembalikan transaksi yang valid')
   }
 
+  const responseData = data as Record<string, unknown> | null
+
   return {
     transaction_id: transactionId,
-    nomor_nota: String(data.nomor_nota ?? ''),
-    payment_status: data.payment_status,
-    subtotal: Number(data.subtotal ?? payload.subtotal),
-    diskon_amount: Number(data.diskon_amount ?? payload.diskonAmount ?? 0),
-    ppn_amount: Number(data.ppn_amount ?? payload.ppnAmount ?? 0),
-    total: Number(data.total ?? payload.total),
-    kembalian: Number(data.kembalian ?? payload.kembalian ?? 0),
-    idempotent: Boolean(data.idempotent),
+    nomor_nota: String(responseData?.nomor_nota ?? ''),
+    payment_status: (responseData?.payment_status as PaymentStatus) ?? 'dibayar',
+    subtotal: Number(responseData?.subtotal ?? payload.subtotal),
+    diskon_amount: Number(responseData?.diskon_amount ?? payload.diskonAmount ?? 0),
+    ppn_amount: Number(responseData?.ppn_amount ?? payload.ppnAmount ?? 0),
+    total: Number(responseData?.total ?? payload.total),
+    kembalian: Number(responseData?.kembalian ?? payload.kembalian ?? 0),
+    items: Array.isArray(responseData?.items) ? (responseData.items as TransactionItem[]) : undefined,
+    idempotent: Boolean(responseData?.idempotent),
   }
 }
 

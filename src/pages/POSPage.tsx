@@ -85,12 +85,10 @@ export function POSPage() {
     updateQty,
     clearCart,
     setDiskon,
-    togglePPN,
     setPpnPersen,
     setMetodeBayar,
     setUangDiterima,
     restoreCart,
-    beginCheckout,
   } = useCartStore()
 
   // Held Carts Store
@@ -654,7 +652,9 @@ export function POSPage() {
 
     processingPaymentRef.current = true
     setProcessingPayment(true)
-    const idempotencyKey = beginCheckout()
+    // Buat idempotency key unik yang mengikat keranjang dan metode pembayaran terkini
+    const nonce = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now())
+    const idempotencyKey = `zeepos-${metode_bayar}-${nonce}`
 
     try {
       const freshProducts = await getProducts({ isActive: true })
@@ -736,21 +736,24 @@ export function POSPage() {
         created_at: new Date().toISOString(),
       }
 
-      const receiptItms: TransactionItem[] = items.map((item, idx) => ({
-        id: idx + 1,
-        transaction_id: committed.transaction_id,
-        product_id: item.product_id,
-        nama_produk: item.nama_produk,
-        harga_satuan: item.harga_satuan,
-        harga_beli: 0,
-        qty: item.qty,
-        subtotal: item.subtotal,
-        laba_kotor: null,
-        diskon_item_persen: item.diskon_item_persen ?? 0,
-        rasio: item.rasio ?? 1,
-        base_qty: item.qty * (item.rasio ?? 1),
-        nama_satuan: item.satuan ?? 'pcs',
-      }))
+      const receiptItms: TransactionItem[] =
+        committed.items && committed.items.length > 0
+          ? committed.items
+          : items.map((item, idx) => ({
+              id: idx + 1,
+              transaction_id: committed.transaction_id,
+              product_id: item.product_id,
+              nama_produk: item.nama_produk,
+              harga_satuan: item.harga_satuan,
+              harga_beli: 0,
+              qty: item.qty,
+              subtotal: item.subtotal,
+              laba_kotor: null,
+              diskon_item_persen: item.diskon_item_persen ?? 0,
+              rasio: item.rasio ?? 1,
+              base_qty: item.qty * (item.rasio ?? 1),
+              nama_satuan: item.satuan ?? 'pcs',
+            }))
 
       if (committed.payment_status === 'dibayar') {
         setReceiptTransaction(receiptTx)
@@ -1368,19 +1371,15 @@ export function POSPage() {
               </div>
 
               <div className="flex items-center justify-between">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={use_ppn}
-                    onChange={() => togglePPN()}
-                    className="h-3.5 w-3.5 rounded border-slate-300 text-[#2563eb] focus:ring-[#2563eb]"
-                  />
-                  <span>PPN ({ppn_persen}%)</span>
-                </label>
-                {ppn_amount > 0 && (
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                  PPN ({ppn_persen}%)
+                </span>
+                {ppn_amount > 0 ? (
                   <span className="font-bold text-[#1f2937]">
                     +Rp {ppn_amount.toLocaleString('id-ID')}
                   </span>
+                ) : (
+                  <span className="text-xs text-slate-400">0%</span>
                 )}
               </div>
             </div>

@@ -80,6 +80,25 @@ export const useHeldCartStore = create<HeldCartStore>()(
       resumeHeldCart: (id) => {
         const tenantId = get().activeTenantId
         if (!tenantId) return null
+
+        // Baca langsung dari storage lokal terkini untuk menghindari race condition antar tab
+        try {
+          const raw = localStorage.getItem('zeepos_held_carts')
+          if (raw) {
+            const parsed = JSON.parse(raw)
+            const storageCarts = parsed?.state?.cartsByTenant?.[tenantId] ?? []
+            const storageTarget = storageCarts.find((c: HeldCart) => c.id === id)
+            if (!storageTarget) {
+              // Sudah di-resume oleh tab lain!
+              const current = (get().cartsByTenant[tenantId] ?? []).filter((c) => c.id !== id)
+              set((state) => ({ cartsByTenant: { ...state.cartsByTenant, [tenantId]: current }, heldCarts: current }))
+              return null
+            }
+          }
+        } catch {
+          // fallback ke state memory
+        }
+
         const current = get().cartsByTenant[tenantId] ?? []
         const target = current.find((cart) => cart.id === id && cart.tenant_id === tenantId) ?? null
         if (target) {

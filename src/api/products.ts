@@ -408,27 +408,16 @@ export async function saveProductDiscountTiers(
   productId: number,
   tiers: DiscountTierRow[],
 ): Promise<void> {
-  const { error: deleteError } = await supabase
-    .from('product_discount_tiers')
-    .delete()
-    .eq('product_id', productId)
-
-  if (deleteError) {
-    throw new Error(deleteError.message)
-  }
-
-  if (tiers.length === 0) return
-
-  const { error: insertError } = await supabase.from('product_discount_tiers').insert(
-    tiers.map((t) => ({
-      product_id: productId,
-      min_qty: t.min_qty,
-      diskon_persen: t.diskon_persen,
+  const { error } = await supabase.rpc('replace_product_discount_tiers' as never, {
+    p_product_id: productId,
+    p_tiers: tiers.map((tier) => ({
+      min_qty: Number(tier.min_qty),
+      diskon_persen: Number(tier.diskon_persen),
     })),
-  )
+  } as never)
 
-  if (insertError) {
-    throw new Error(insertError.message)
+  if (error) {
+    throw new Error(error.message)
   }
 }
 
