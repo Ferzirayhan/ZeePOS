@@ -90,14 +90,26 @@ export function CustomersPage() {
     }
   }
 
-  // Map untuk menyimpan idempotency key per-receivable ID agar stabil bahkan jika modal ditutup-buka
+  // Map untuk menyimpan idempotency key + payload yang terikat padanya per receivable.
+  // Key dipertahankan lintas close/reopen modal selama pembayaran belum sukses, dan
+  // payload terikat menjamin: buka ulang modal memulihkan form persis seperti attempt
+  // sebelumnya, serta edit payload merotasi key (server fingerprint selalu cocok).
   const receivableIdempotencyMap = useRef<Record<number, string>>({})
+  const receivableBoundPayload = useRef<Record<number, { jumlah: number; metodeBayar: string; catatan: string }>>({})
 
   const handleOpenPayModal = (r: Receivable) => {
     setSelectedReceivable(r)
-    setNominalBayar(String(r.sisa_hutang))
-    setMetodeBayar('tunai')
-    setCatatanBayar('')
+    const bound = receivableBoundPayload.current[r.id]
+    if (bound) {
+      // Lost-response recovery: pulihkan form persis seperti attempt yang belum terkonfirmasi
+      setNominalBayar(String(bound.jumlah))
+      setMetodeBayar(bound.metodeBayar)
+      setCatatanBayar(bound.catatan)
+    } else {
+      setNominalBayar(String(r.sisa_hutang))
+      setMetodeBayar('tunai')
+      setCatatanBayar('')
+    }
     if (!receivableIdempotencyMap.current[r.id]) {
       receivableIdempotencyMap.current[r.id] = crypto.randomUUID()
     }
@@ -108,8 +120,29 @@ export function CustomersPage() {
     setSelectedReceivable(null)
     setNominalBayar('')
     setCatatanBayar('')
-    // Biarkan key tersimpan di ref sampai pembayaran benar-benar berhasil terkonfirmasi
+    // Key + payload terikat dipertahankan sampai pembayaran sukses terkonfirmasi,
+    // agar lost-response recovery tetap mungkin setelah close/reopen modal
   }
+
+  // Rotasi key saat payload diubah setelah attempt gagal: key lama terikat fingerprint
+  // lama di server, jadi payload baru HARUS memakai key baru agar tidak ditolak
+  // "Kunci idempotensi sudah digunakan untuk pembayaran berbeda".
+  useEffect(() => {
+    if (!selectedReceivable) return
+    const bound = receivableBoundPayload.current[selectedReceivable.id]
+    if (!bound) return
+    const jumlah = Number(nominalBayar.replace(/\D/g, '')) || 0
+    const changed =
+      jumlah !== bound.jumlah ||
+      metodeBayar !== bound.metodeBayar ||
+      catatanBayar !== bound.catatan
+    if (changed) {
+      const newKey = crypto.randomUUID()
+      receivableIdempotencyMap.current[selectedReceivable.id] = newKey
+      delete receivableBoundPayload.current[selectedReceivable.id]
+      setPaymentIdempotencyKey(newKey)
+    }
+  }, [selectedReceivable, nominalBayar, metodeBayar, catatanBayar])
 
   const handlePaySubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -120,6 +153,13 @@ export function CustomersPage() {
     const keyToUse = paymentIdempotencyKey || crypto.randomUUID()
     if (!paymentIdempotencyKey) {
       setPaymentIdempotencyKey(keyToUse)
+    }
+
+    // Simpan payload terikat ke key ini. Edit payload setelah error akan merotasi key
+    // (lihat handler di bawah), sehingga fingerprint server tidak pernah mismatch.
+    receivableBoundPayload.current = {
+      ...receivableBoundPayload.current,
+      [selectedReceivable.id]: { jumlah, metodeBayar, catatan: catatanBayar },
     }
 
     try {
@@ -133,6 +173,9 @@ export function CustomersPage() {
       })
 
       delete receivableIdempotencyMap.current[selectedReceivable.id]
+      const boundRest = { ...receivableBoundPayload.current }
+      delete boundRest[selectedReceivable.id]
+      receivableBoundPayload.current = boundRest
       handleClosePayModal()
       pushToast({
         title: 'Pembayaran Piutang Berhasil',

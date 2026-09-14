@@ -12,6 +12,25 @@ import type { Profile } from '../types/database'
 import { cn } from '../utils/cn'
 import { openPrintWindow, writeSafePrintDocument } from '../utils/printWindow'
 
+// Host gambar yang diizinkan CSP produksi (vercel.json img-src).
+// Simpan konstanta ini sinkron dengan header CSP agar admin tidak bisa
+// menyimpan QRIS yang pasti gagal dimuat di deployment.
+const CSP_IMG_HOSTS = ['images.unsplash.com']
+const isCspAllowedImageUrl = (val: string): boolean => {
+  if (!val) return true
+  if (val.startsWith('data:image/')) return true
+  if (val.startsWith('/')) return true
+  if (val.startsWith('https://')) {
+    try {
+      const host = new URL(val).hostname
+      return CSP_IMG_HOSTS.includes(host) || host.endsWith('.supabase.co')
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
 const storeProfileSchema = z.object({
   nama_toko: z.string().min(2, 'Nama toko wajib diisi'),
   alamat: z.string().min(5, 'Alamat wajib diisi'),
@@ -30,16 +49,10 @@ const paymentSchema = z.object({
   payment_qris_image_url: z
     .string()
     .trim()
-    .refine(
-      (val) =>
-        !val ||
-        val.startsWith('data:image/') ||
-        val.startsWith('https://') ||
-        val.startsWith('/'),
-      {
-        message: 'URL QRIS harus berupa format gambar data URL (data:image/...) atau URL HTTPS',
-      },
-    )
+    .refine(isCspAllowedImageUrl, {
+      message:
+        'URL QRIS harus data URL (data:image/...), path lokal (/...), atau HTTPS dari images.unsplash.com / *.supabase.co agar tidak diblokir kebijakan keamanan browser',
+    })
     .optional(),
   payment_transfer_label: z.string().trim().min(2, 'Label transfer wajib diisi'),
   payment_transfer_account_name: z.string().trim().min(2, 'Nama rekening wajib diisi'),

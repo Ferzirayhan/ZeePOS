@@ -87,7 +87,24 @@ export function PaymentModal({
     return list.slice(0, 4)
   }, [total])
 
-  const [qrisImageError, setQrisImageError] = useState(false)
+  // URL QRIS yang gagal dimuat. Error menempel pada URL (bukan boolean global):
+  // ganti URL, buka ulang modal, atau pindah metode otomatis memberi kesempatan
+  // mencoba ulang tanpa perlu reload halaman.
+  const [failedQrisUrl, setFailedQrisUrl] = useState<string | null>(null)
+  const [lastSeenUrl, setLastSeenUrl] = useState(settings.payment_qris_image_url)
+  const [lastSeenOpen, setLastSeenOpen] = useState(isOpen)
+  const [lastSeenMetode, setLastSeenMetode] = useState(metodeBayar)
+  if (
+    lastSeenUrl !== settings.payment_qris_image_url ||
+    lastSeenOpen !== isOpen ||
+    lastSeenMetode !== metodeBayar
+  ) {
+    setLastSeenUrl(settings.payment_qris_image_url)
+    setLastSeenOpen(isOpen)
+    setLastSeenMetode(metodeBayar)
+    setFailedQrisUrl(null)
+  }
+  const qrisImageError = failedQrisUrl !== null && failedQrisUrl === settings.payment_qris_image_url
 
   const isCashInsufficient = metodeBayar === 'tunai' && uangDiterima < total
   const isTransferMissingConfig =
@@ -248,7 +265,7 @@ export function PaymentModal({
                 <img
                   src={settings.payment_qris_image_url}
                   alt="QRIS Toko"
-                  onError={() => setQrisImageError(true)}
+                  onError={() => setFailedQrisUrl(settings.payment_qris_image_url ?? null)}
                   className="w-full h-full object-contain rounded-xl"
                 />
               </div>

@@ -95,6 +95,8 @@ export function POSPage() {
   const heldCarts = useHeldCartStore((state) => state.heldCarts)
   const holdCurrentCart = useHeldCartStore((state) => state.holdCurrentCart)
   const resumeHeldCart = useHeldCartStore((state) => state.resumeHeldCart)
+  const acknowledgeResume = useHeldCartStore((state) => state.acknowledgeResume)
+  const rollbackResume = useHeldCartStore((state) => state.rollbackResume)
   const setHeldCartTenant = useHeldCartStore((state) => state.setActiveTenant)
 
   useEffect(() => {
@@ -460,7 +462,17 @@ export function POSPage() {
     }
   }
 
-  const handleHoldCurrentCart = () => {
+  const handleHoldCurrentCart = async () => {
+    // Jangan parkir keranjang saat checkout sedang diproses: cart yang sedang dalam
+    // RPC bisa terparkir lalu di-resume dan di-checkout ulang dengan key baru (duplikat).
+    if (processingPaymentRef.current || processingPayment) {
+      pushToast({
+        title: 'Checkout Sedang Diproses',
+        description: 'Tunggu proses pembayaran selesai sebelum menahan pesanan.',
+        variant: 'warning',
+      })
+      return
+    }
     if (items.length === 0) {
       pushToast({
         title: 'Pesanan Masih Kosong',
@@ -471,17 +483,26 @@ export function POSPage() {
     }
 
     const defaultLabel = `Pesanan #${heldCarts.length + 1}`
-    holdCurrentCart({
-      label: defaultLabel,
-      items,
-      diskon_persen,
-      use_ppn,
-      ppn_persen,
-      metode_bayar,
-      total,
-      customer_id: selectedCustomer?.id ?? null,
-      customer_nama: selectedCustomer?.nama ?? null,
-    })
+    try {
+      await holdCurrentCart({
+        label: defaultLabel,
+        items,
+        diskon_persen,
+        use_ppn,
+        ppn_persen,
+        metode_bayar,
+        total,
+        customer_id: selectedCustomer?.id ?? null,
+        customer_nama: selectedCustomer?.nama ?? null,
+      })
+    } catch {
+      pushToast({
+        title: 'Gagal Menahan Pesanan',
+        description: 'Pesanan tidak jadi diparkir. Keranjang tetap aktif.',
+        variant: 'error',
+      })
+      return
+    }
 
     clearCart()
     setSelectedCustomer(null)
@@ -502,7 +523,7 @@ export function POSPage() {
       return
     }
 
-    // Ambil sekaligus hapus dari daftar antrean parkir (klaim atomik lintas tab)
+    // Klaim atomik lintas tab: cart ditandai diklaim (tetap tersimpan, crash-safe)
     const resumed = await resumeHeldCart(held.id)
 
     if (!resumed) {
@@ -514,28 +535,42 @@ export function POSPage() {
       return
     }
 
-    restoreCart({
-      items: resumed.items,
-      diskon_persen: resumed.diskon_persen,
-      use_ppn: resumed.use_ppn,
-      ppn_persen: resumed.ppn_persen,
-      metode_bayar: resumed.metode_bayar,
-    })
-
-    if (resumed.customer_id) {
-      setSelectedCustomer({
-        id: resumed.customer_id,
-        tenant_id: '',
-        nama: resumed.customer_nama ?? 'Pelanggan',
-        telepon: null,
-        alamat: null,
-        total_hutang: 0,
-        catatan: null,
-        is_active: true,
+    try {
+      restoreCart({
+        items: resumed.items,
+        diskon_persen: resumed.diskon_persen,
+        use_ppn: resumed.use_ppn,
+        ppn_persen: resumed.ppn_persen,
+        metode_bayar: resumed.metode_bayar,
       })
-    } else {
-      setSelectedCustomer(null)
+
+      if (resumed.customer_id) {
+        setSelectedCustomer({
+          id: resumed.customer_id,
+          tenant_id: '',
+          nama: resumed.customer_nama ?? 'Pelanggan',
+          telepon: null,
+          alamat: null,
+          total_hutang: 0,
+          catatan: null,
+          is_active: true,
+        })
+      } else {
+        setSelectedCustomer(null)
+      }
+    } catch {
+      // Restore gagal: lepaskan klaim agar pesanan kembali tersedia, jangan sampai hilang
+      await rollbackResume(held.id)
+      pushToast({
+        title: 'Gagal Memuat Pesanan',
+        description: 'Pesanan parkir tetap tersimpan dan bisa dilanjutkan kembali.',
+        variant: 'error',
+      })
+      return
     }
+
+    // Restore sukses: barulah pesanan dikeluarkan permanen dari daftar parkir
+    await acknowledgeResume(held.id)
 
     pushToast({
       title: 'Pesanan Dilanjutkan',
@@ -666,7 +701,9 @@ export function POSPage() {
     processingPaymentRef.current = true
     setProcessingPayment(true)
 
-    // Buat fingerprint payload untuk rotasi key otomatis jika payload berubah
+    // Buat fingerprint payload untuk rotasi key otomatis jika payload berubah.
+    // keyRotated = true berarti ini attempt PERTAMA untuk payload ini; false berarti
+    // retry identik dengan key yang sama (kemungkinan lost-response recovery).
     const currentFingerprint = JSON.stringify({
       items: items.map((i) => `${i.product_id}:${i.unit_id ?? 'b'}:${i.qty}:${i.harga_satuan}`),
       subtotal,
@@ -678,38 +715,47 @@ export function POSPage() {
       customer_id: selectedCustomer?.id ?? null,
     })
 
+    let keyRotated = false
     if (!checkoutIdempotencyKeyRef.current || lastCheckoutFingerprintRef.current !== currentFingerprint) {
       const nonce = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now())
       checkoutIdempotencyKeyRef.current = `zeepos-${nonce}`
       lastCheckoutFingerprintRef.current = currentFingerprint
+      keyRotated = true
     }
     const idempotencyKey = checkoutIdempotencyKeyRef.current
 
     try {
-      const freshProducts = await getProducts({ isActive: true })
-      const productMap = new Map(freshProducts.map((product) => [product.id, product]))
+      // Validasi katalog & stok hanya untuk attempt baru (key ter-rotasi). Pada retry
+      // identik (lost-response recovery), lewati validasi frontend: stok sudah mungkin
+      // terpotong oleh commit pertama, dan produk bisa sudah dinonaktifkan — request
+      // harus tetap sampai ke lookup idempotensi server agar kasir menerima receipt
+      // recovery. Server tetap authoritative untuk stok & produk.
+      if (keyRotated) {
+        const freshProducts = await getProducts({ isActive: true })
+        const productMap = new Map(freshProducts.map((product) => [product.id, product]))
 
-      for (const item of items) {
-        const fresh = productMap.get(item.product_id)
+        for (const item of items) {
+          const fresh = productMap.get(item.product_id)
 
-        if (!fresh) {
-          pushToast({
-            title: 'Produk tidak ditemukan',
-            description: `${item.nama_produk} sudah tidak aktif. Hapus dari keranjang sebelum melanjutkan.`,
-            variant: 'error',
-          })
-          return
-        }
+          if (!fresh) {
+            pushToast({
+              title: 'Produk tidak ditemukan',
+              description: `${item.nama_produk} sudah tidak aktif. Hapus dari keranjang sebelum melanjutkan.`,
+              variant: 'error',
+            })
+            return
+          }
 
-        const freshStok = Number(fresh.stok ?? 0)
+          const freshStok = Number(fresh.stok ?? 0)
 
-        if (item.qty > freshStok) {
-          pushToast({
-            title: 'Stok tidak cukup',
-            description: `Stok ${item.nama_produk} tersisa ${freshStok}, tapi di keranjang ada ${item.qty}.`,
-            variant: 'error',
-          })
-          return
+          if (item.qty > freshStok) {
+            pushToast({
+              title: 'Stok tidak cukup',
+              description: `Stok ${item.nama_produk} tersisa ${freshStok}, tapi di keranjang ada ${item.qty}.`,
+              variant: 'error',
+            })
+            return
+          }
         }
       }
 

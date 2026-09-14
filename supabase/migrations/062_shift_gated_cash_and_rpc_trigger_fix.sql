@@ -24,6 +24,40 @@
 -- ====================================================================
 
 -- --------------------------------------------------------------------
+-- 0. Helper fingerprint checkout (deterministic, format identik dengan versi lama)
+-- --------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.zeepos_checkout_fingerprint(
+  p_items jsonb,
+  p_diskon_persen numeric,
+  p_ppn_persen numeric,
+  p_metode_bayar metode_bayar,
+  p_uang_diterima numeric,
+  p_customer_id integer,
+  p_catatan text
+)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+SET search_path = pg_catalog, public
+AS $fn$
+  SELECT encode(extensions.digest(
+    jsonb_build_object(
+      'items', p_items,
+      'diskon_persen', p_diskon_persen,
+      'ppn_persen', p_ppn_persen,
+      'metode_bayar', p_metode_bayar::TEXT,
+      'uang_diterima', CASE WHEN p_metode_bayar = 'tunai' THEN p_uang_diterima ELSE NULL END,
+      'customer_id', p_customer_id,
+      'catatan', NULLIF(btrim(COALESCE(p_catatan, '')), '')
+    )::TEXT,
+    'sha256'
+  ), 'hex');
+$fn$;
+
+REVOKE ALL ON FUNCTION public.zeepos_checkout_fingerprint(jsonb, numeric, numeric, public.metode_bayar, numeric, integer, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.zeepos_checkout_fingerprint(jsonb, numeric, numeric, public.metode_bayar, numeric, integer, text) TO authenticated, service_role;
+
+-- --------------------------------------------------------------------
 -- 1. Guard finansial customer yang aman untuk RPC SECURITY DEFINER
 -- --------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.protect_customer_financial_fields()
@@ -267,11 +301,9 @@ AS $function$
 DECLARE
   v_transaction_id INTEGER;
   v_nomor_nota TEXT;
-  v_existing_id INTEGER;
-  v_existing_nota TEXT;
-  v_existing_status payment_status;
-  v_existing_fingerprint TEXT;
+  v_existing_trx public.transactions%ROWTYPE;
   v_request_fingerprint TEXT;
+  v_fp_items JSONB;
   v_idempotent BOOLEAN := false;
   v_product RECORD;
   v_unit RECORD;
@@ -371,45 +403,41 @@ BEGIN
 
   v_server_ppn_persen := COALESCE(NULLIF(v_setting_ppn_val, '')::NUMERIC, 0);
 
-  -- Fingerprint & Idempotency
-  v_request_fingerprint := encode(extensions.digest(
-    jsonb_build_object(
-      'items', (SELECT jsonb_agg(jsonb_build_object(
-        'product_id', NULLIF(value->>'product_id', '')::INTEGER,
-        'unit_id', NULLIF(value->>'unit_id', '')::INTEGER,
-        'qty', NULLIF(value->>'qty', '')::NUMERIC
-      ) ORDER BY NULLIF(value->>'product_id', '')::INTEGER,
-                 NULLIF(value->>'unit_id', '')::INTEGER NULLS FIRST,
-                 NULLIF(value->>'qty', '')::NUMERIC)
-        FROM jsonb_array_elements(v_items)),
-      'diskon_persen', v_effective_diskon_persen,
-      'ppn_persen', v_server_ppn_persen,
-      'metode_bayar', p_metode_bayar::TEXT,
-      'uang_diterima', CASE WHEN p_metode_bayar = 'tunai' THEN p_uang_diterima ELSE NULL END,
-      'customer_id', p_customer_id,
-      'catatan', NULLIF(btrim(p_catatan), '')
-    )::TEXT,
-    'sha256'
-  ), 'hex');
+  -- Fingerprint: item & parameter request. PPN TIDAK dihitung di sini — untuk attempt
+  -- baru dipakai tarif server saat ini, sedangkan untuk recovery (retry dengan key
+  -- yang sudah ada) dipakai tarif TERSIMPAN pada transaksi existing, sehingga
+  -- perubahan konfigurasi PPN di tengah jalan tidak membatalkan lost-response recovery.
+  v_fp_items := (SELECT jsonb_agg(jsonb_build_object(
+    'product_id', NULLIF(value->>'product_id', '')::INTEGER,
+    'unit_id', NULLIF(value->>'unit_id', '')::INTEGER,
+    'qty', NULLIF(value->>'qty', '')::NUMERIC
+  ) ORDER BY NULLIF(value->>'product_id', '')::INTEGER,
+             NULLIF(value->>'unit_id', '')::INTEGER NULLS FIRST,
+             NULLIF(value->>'qty', '')::NUMERIC)
+    FROM jsonb_array_elements(v_items));
 
   IF p_idempotency_key IS NOT NULL AND btrim(p_idempotency_key) <> '' THEN
     PERFORM pg_advisory_xact_lock(hashtextextended(v_tenant_id::TEXT || ':' || btrim(p_idempotency_key), 0));
-    SELECT id, nomor_nota, payment_status, request_fingerprint
-    INTO v_existing_id, v_existing_nota, v_existing_status, v_existing_fingerprint
+    SELECT * INTO v_existing_trx
     FROM public.transactions
     WHERE tenant_id = v_tenant_id AND idempotency_key = btrim(p_idempotency_key)
     FOR UPDATE;
 
-    IF v_existing_id IS NOT NULL THEN
-      IF v_existing_fingerprint IS DISTINCT FROM v_request_fingerprint THEN
+    IF FOUND THEN
+      v_request_fingerprint := public.zeepos_checkout_fingerprint(
+        v_fp_items, v_effective_diskon_persen, v_existing_trx.ppn_persen,
+        p_metode_bayar, p_uang_diterima, p_customer_id, p_catatan
+      );
+
+      IF v_existing_trx.request_fingerprint IS DISTINCT FROM v_request_fingerprint THEN
         RAISE EXCEPTION 'Kunci idempotensi sudah digunakan untuk transaksi atau metode pembayaran berbeda';
       END IF;
 
-      SELECT * INTO v_final_trx FROM public.transactions WHERE id = v_existing_id;
+      v_final_trx := v_existing_trx;
 
       SELECT jsonb_agg(to_jsonb(ti)) INTO v_result_items
       FROM public.transaction_items ti
-      WHERE ti.transaction_id = v_existing_id AND ti.tenant_id = v_tenant_id;
+      WHERE ti.transaction_id = v_existing_trx.id AND ti.tenant_id = v_tenant_id;
 
       RETURN jsonb_build_object(
         'transaction', to_jsonb(v_final_trx),
@@ -452,6 +480,12 @@ BEGIN
       RAISE EXCEPTION 'Tidak ada shift kasir yang aktif. Buka shift terlebih dahulu sebelum transaksi tunai.';
     END IF;
   END IF;
+
+  -- Attempt baru: fingerprint dengan tarif PPN server saat ini
+  v_request_fingerprint := public.zeepos_checkout_fingerprint(
+    v_fp_items, v_effective_diskon_persen, v_server_ppn_persen,
+    p_metode_bayar, p_uang_diterima, p_customer_id, p_catatan
+  );
 
   -- Hitung harga dari database
   CREATE TEMP TABLE IF NOT EXISTS tmp_demand (
