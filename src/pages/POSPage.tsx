@@ -558,8 +558,8 @@ export function POSPage() {
       setPrintingThermal(true)
       const receiptData = {
         store_name: settings.nama_toko || 'ZEEPOS STORE',
-        store_address: settings.alamat_toko || '',
-        store_phone: settings.nomor_telepon || '',
+        store_address: settings.alamat || '',
+        store_phone: settings.no_telp || '',
         invoice: receiptTransaction.nomor_nota,
         created_at: format(new Date(receiptTransaction.created_at || Date.now()), 'dd/MM/yyyy HH:mm'),
         cashier: user?.nama || 'Kasir',

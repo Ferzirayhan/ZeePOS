@@ -81,7 +81,7 @@ export function Sidebar() {
       {mobileSidebarOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-[#06231f]/30 md:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/30 md:hidden"
           onClick={() => setMobileSidebarOpen(false)}
           aria-label="Tutup navigasi"
         />

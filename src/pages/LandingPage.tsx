@@ -214,23 +214,23 @@ export function LandingPage() {
               FAQ
             </a>
 
-            {session && user && (
+            {session && user ? (
               <Link
                 to="/dashboard"
-                className="hidden sm:flex items-center gap-1.5 rounded-2xl bg-[#2563eb] px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-[#1d4ed8]"
+                className="flex items-center gap-1.5 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-black text-[#2563eb] shadow-sm transition hover:bg-blue-100"
               >
-                <span className="material-symbols-outlined text-base text-[#10b981]">dashboard</span>
+                <span className="material-symbols-outlined text-base">dashboard</span>
                 <span>Dashboard</span>
               </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300"
+              >
+                <span className="material-symbols-outlined text-base text-[#2563eb]">login</span>
+                <span>Masuk Kasir</span>
+              </Link>
             )}
-
-            <Link
-              to="/login"
-              className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300"
-            >
-              <span className="material-symbols-outlined text-base text-[#2563eb]">login</span>
-              <span>Masuk Kasir</span>
-            </Link>
 
             <Link
               to="/register"
@@ -361,7 +361,7 @@ export function LandingPage() {
                             <span className="material-symbols-outlined text-sm">add</span>
                           </button>
                         </div>
-                        <span className="w-18 text-right font-display text-xs font-black text-[#2563eb]">
+                        <span className="w-20 text-right font-display text-xs font-black text-[#2563eb]">
                           Rp {(item.price * item.qty).toLocaleString('id-ID')}
                         </span>
                       </div>
@@ -572,7 +572,7 @@ export function LandingPage() {
             {features.map((item) => (
               <div
                 key={item.title}
-                className="group rounded-3xl border border-slate-200/80 bg-white p-7 shadow-sm transition hover:border-[#2563eb] hover:shadow-xl hover:shadow-teal-500/5 hover:-translate-y-1"
+                className="group rounded-3xl border border-slate-200/80 bg-white p-7 shadow-sm transition hover:border-[#2563eb] hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-[#2563eb] transition group-hover:bg-[#2563eb] group-hover:text-white">
@@ -657,7 +657,7 @@ export function LandingPage() {
                 to="/login"
                 className="flex items-center justify-center gap-2 rounded-2xl border border-white/40 bg-blue-800/40 backdrop-blur-md px-7 py-4 text-base font-extrabold text-white transition hover:bg-blue-800/60"
               >
-                <span className="material-symbols-outlined text-xl text-[#10b981]">login</span>
+                <span className="material-symbols-outlined text-xl text-blue-100">login</span>
                 Masuk ke Kasir
               </Link>
             </div>

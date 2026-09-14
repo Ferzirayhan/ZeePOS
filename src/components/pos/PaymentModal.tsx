@@ -185,7 +185,7 @@ export function PaymentModal({
                     onUangDiterimaChange(num)
                   }}
                   placeholder="0"
-                  className="w-full h-16 pl-14 pr-4 rounded-2xl border-2 border-slate-200 bg-slate-50 font-display text-2xl sm:text-3xl font-black text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white shadow-xs"
+                  className="w-full h-16 pl-14 pr-4 rounded-2xl border-2 border-slate-200 bg-slate-50 font-display text-2xl sm:text-3xl font-black text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white shadow-sm"
                 />
               </div>
             </div>
@@ -204,7 +204,7 @@ export function PaymentModal({
                     className={cn(
                       'py-2.5 px-3 rounded-xl border text-xs font-black transition-all active:scale-95',
                       uangDiterima === amount
-                        ? 'border-blue-600 bg-blue-50 text-blue-600 shadow-xs'
+                        ? 'border-blue-600 bg-blue-50 text-blue-600 shadow-sm'
                         : 'border-slate-200/80 bg-slate-50 text-slate-700 hover:bg-slate-100',
                     )}
                   >

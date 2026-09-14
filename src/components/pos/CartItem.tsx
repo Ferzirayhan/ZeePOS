@@ -57,7 +57,7 @@ export function CartItem({ item, onDecrease, onIncrease, onRemove, onSetQty, onO
             <button
               type="button"
               onClick={onDecrease}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-xs transition-all hover:bg-blue-600 hover:text-white active:scale-95"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm transition-all hover:bg-blue-600 hover:text-white active:scale-95"
             >
               <span className="material-symbols-outlined text-[16px]">remove</span>
             </button>
@@ -79,7 +79,7 @@ export function CartItem({ item, onDecrease, onIncrease, onRemove, onSetQty, onO
               type="button"
               onClick={onIncrease}
               disabled={item.qty >= item.stok_tersedia}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-xs transition-all hover:bg-blue-600 hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm transition-all hover:bg-blue-600 hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span className="material-symbols-outlined text-[16px]">add</span>
             </button>
