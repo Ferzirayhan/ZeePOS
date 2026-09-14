@@ -61,6 +61,9 @@ $$;
 -- menyentuh kedua kolom ini sama sekali.
 REVOKE UPDATE (total_hutang, is_active) ON public.customers FROM authenticated, anon, PUBLIC;
 
+-- Fungsi trigger tidak boleh dipanggil langsung oleh klien mana pun.
+REVOKE ALL ON FUNCTION public.protect_customer_financial_fields() FROM PUBLIC, anon, authenticated, service_role;
+
 -- --------------------------------------------------------------------
 -- 2. pay_receivable_atomic: cicilan tunai wajib punya shift aktif
 --    (body identik dengan 061, hanya blok serialisasi shift yang diperkuat)
@@ -238,6 +241,8 @@ $function$;
 -- 3. create_transaction_atomic: checkout tunai wajib punya shift aktif
 --    (body identik dengan 061, hanya blok serialisasi shift yang diperkuat)
 -- --------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public.pay_receivable_atomic(integer, numeric, text, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.pay_receivable_atomic(integer, numeric, text, text, text) TO authenticated, service_role;
 CREATE OR REPLACE FUNCTION public.create_transaction_atomic(
   p_items jsonb,
   p_kasir_id uuid,
@@ -682,3 +687,14 @@ BEGIN
   );
 END;
 $function$;
+
+-- Buat signature checkout eksplisit tunggal: revoke semua overload lain (defensif
+-- terhadap resurrect overload legacy) dan grant khusus signature 14-argumen ini.
+REVOKE ALL ON FUNCTION public.create_transaction_atomic(
+  jsonb, uuid, numeric, numeric, numeric, numeric, numeric, numeric,
+  public.metode_bayar, numeric, numeric, text, integer, text
+) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.create_transaction_atomic(
+  jsonb, uuid, numeric, numeric, numeric, numeric, numeric, numeric,
+  public.metode_bayar, numeric, numeric, text, integer, text
+) TO authenticated, service_role;
