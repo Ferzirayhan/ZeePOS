@@ -511,7 +511,7 @@ BEGIN
       RAISE EXCEPTION 'Item transaksi tidak valid';
     END IF;
 
-    SELECT id, nama, stok, is_active, harga_jual, diskon_produk_persen
+    SELECT id, nama, stok, is_active, harga_jual, diskon_produk_persen, satuan
     INTO v_product
     FROM public.products
     WHERE id = v_product_id AND tenant_id = v_tenant_id
