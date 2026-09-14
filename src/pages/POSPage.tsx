@@ -96,6 +96,7 @@ export function POSPage() {
   // Held Carts Store
   const heldCarts = useHeldCartStore((state) => state.heldCarts)
   const holdCurrentCart = useHeldCartStore((state) => state.holdCurrentCart)
+  const resumeHeldCart = useHeldCartStore((state) => state.resumeHeldCart)
   const setHeldCartTenant = useHeldCartStore((state) => state.setActiveTenant)
 
   useEffect(() => {
@@ -501,19 +502,23 @@ export function POSPage() {
       return
     }
 
+    // Ambil sekaligus hapus dari daftar antrean parkir (atomic resume)
+    const resumed = resumeHeldCart(held.id)
+    const target = resumed || held
+
     restoreCart({
-      items: held.items,
-      diskon_persen: held.diskon_persen,
-      use_ppn: held.use_ppn,
-      ppn_persen: held.ppn_persen,
-      metode_bayar: held.metode_bayar,
+      items: target.items,
+      diskon_persen: target.diskon_persen,
+      use_ppn: target.use_ppn,
+      ppn_persen: target.ppn_persen,
+      metode_bayar: target.metode_bayar,
     })
 
-    if (held.customer_id) {
+    if (target.customer_id) {
       setSelectedCustomer({
-        id: held.customer_id,
+        id: target.customer_id,
         tenant_id: '',
-        nama: held.customer_nama ?? 'Pelanggan',
+        nama: target.customer_nama ?? 'Pelanggan',
         telepon: null,
         alamat: null,
         total_hutang: 0,
@@ -526,7 +531,7 @@ export function POSPage() {
 
     pushToast({
       title: 'Pesanan Dilanjutkan',
-      description: `${held.label} berhasil dimuat kembali ke tiket kasir.`,
+      description: `${target.label} berhasil dimuat kembali ke tiket kasir.`,
       variant: 'success',
     })
   }
@@ -696,7 +701,7 @@ export function POSPage() {
         idempotencyKey,
       })
 
-      await Promise.all([loadCatalogData(), loadPendingData()])
+      // 1. Transaksi telah berhasil di-commit di database
       setIsPaymentModalOpen(false)
       audioFeedback.playSuccessChime()
 
@@ -723,6 +728,15 @@ export function POSPage() {
       setSearchQuery('')
       setPpnPersen(Number(settings.ppn_persen ?? 0))
       searchInputRef.current?.focus()
+
+      // 2. Refresh katalog dan antrean secara background (best-effort, tidak membatalkan status sukses)
+      Promise.all([loadCatalogData(), loadPendingData()]).catch(() => {
+        pushToast({
+          title: 'Pembaruan latar belakang tertunda',
+          description: 'Transaksi tersimpan, namun pembaruan katalog tertunda. Data akan sinkron otomatis.',
+          variant: 'info',
+        })
+      })
     } catch (error) {
       pushToast({
         title: 'Transaksi gagal',

@@ -70,6 +70,7 @@ export async function payReceivable(payload: {
   jumlah: number
   metodeBayar?: string
   catatan?: string | null
+  idempotencyKey?: string | null
 }): Promise<{
   success: boolean
   payment_id: number
@@ -77,12 +78,16 @@ export async function payReceivable(payload: {
   jumlah_dibayar: number
   sisa_hutang: number
   status: string
+  idempotent?: boolean
 }> {
+  const idempotencyKey = payload.idempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null)
+
   const { data, error } = await supabase.rpc('pay_receivable_atomic' as never, {
     p_receivable_id: payload.receivableId,
     p_jumlah: payload.jumlah,
     p_metode_bayar: payload.metodeBayar || 'tunai',
     p_catatan: payload.catatan || null,
+    p_idempotency_key: idempotencyKey,
   } as never)
 
   if (error) {
@@ -96,6 +101,7 @@ export async function payReceivable(payload: {
     jumlah_dibayar: number
     sisa_hutang: number
     status: string
+    idempotent?: boolean
   }
 }
 

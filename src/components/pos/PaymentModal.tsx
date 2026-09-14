@@ -88,12 +88,14 @@ export function PaymentModal({
   }, [total])
 
   const isCashInsufficient = metodeBayar === 'tunai' && uangDiterima < total
+  const isTransferMissingConfig = metodeBayar === 'transfer' && !settings.payment_transfer_account_number
+  const isPaymentDisabled = isProcessing || isCashInsufficient || isTransferMissingConfig
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === ' ' && metodeBayar === 'tunai') {
       e.preventDefault()
       onUangDiterimaChange(total)
-    } else if (e.key === 'Enter' && !isCashInsufficient && !isProcessing) {
+    } else if (e.key === 'Enter' && !isPaymentDisabled) {
       e.preventDefault()
       onConfirmPayment()
     }
@@ -232,15 +234,27 @@ export function PaymentModal({
         {/* Konten Tab QRIS */}
         {metodeBayar === 'qris' && (
           <div className="space-y-4 text-center py-2">
-            <div className="mx-auto w-48 h-48 bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-4">
-              <span className="material-symbols-outlined text-6xl text-blue-600">qr_code_2</span>
-              <p className="text-xs font-black text-slate-800 mt-2">QRIS Statis Toko</p>
-              <p className="text-[10px] text-slate-400 font-medium">Scan via GoPay, OVO, BCA, DANA, dll</p>
-            </div>
-            <div className="bg-blue-50 border border-blue-200/80 rounded-2xl p-3.5 text-xs text-blue-900 font-medium">
+            {settings.payment_qris_image_url ? (
+              <div className="mx-auto w-48 h-48 bg-white border border-slate-200 rounded-2xl flex flex-col items-center justify-center p-2 shadow-sm">
+                <img
+                  src={settings.payment_qris_image_url}
+                  alt="QRIS Toko"
+                  className="w-full h-full object-contain rounded-xl"
+                />
+              </div>
+            ) : (
+              <div className="mx-auto w-52 h-44 bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-4">
+                <span className="material-symbols-outlined text-4xl text-slate-400">qr_code_2</span>
+                <p className="text-xs font-bold text-slate-700 mt-2">QRIS Belum Dikonfigurasi</p>
+                <p className="text-[10px] text-slate-400 mt-1 max-w-[180px]">
+                  Admin belum mengunggah gambar QRIS di menu Pengaturan Toko.
+                </p>
+              </div>
+            )}
+            <div className="bg-blue-50 border border-blue-200/80 rounded-2xl p-3.5 text-xs text-blue-900 font-medium text-left">
               <p className="font-bold">Konfirmasi Penerimaan QRIS</p>
               <p className="text-[11px] text-blue-700 mt-0.5">
-                Pastikan saldo masuk di aplikasi merchant Anda sebelum menekan tombol Selesai.
+                Pastikan dana sudah masuk di notifikasi merchant Anda sebelum menekan tombol Simpan.
               </p>
             </div>
           </div>
@@ -249,19 +263,29 @@ export function PaymentModal({
         {/* Konten Tab Transfer Bank */}
         {metodeBayar === 'transfer' && (
           <div className="space-y-4 py-2">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Rekening Tujuan</span>
-              <p className="font-display text-lg font-black text-slate-900">
-                {settings.payment_transfer_bank || 'BCA'} • {settings.payment_transfer_account_number || '123-456-7890'}
-              </p>
-              <p className="text-xs text-slate-500 font-medium">
-                a.n. {settings.payment_transfer_account_name || 'Pemilik Toko'}
-              </p>
-            </div>
+            {settings.payment_transfer_account_number ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Rekening Tujuan</span>
+                <p className="font-display text-lg font-black text-slate-900">
+                  {settings.payment_transfer_bank || 'Bank'} • {settings.payment_transfer_account_number}
+                </p>
+                <p className="text-xs text-slate-600 font-medium">
+                  a.n. {settings.payment_transfer_account_name || 'Pemilik Toko'}
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/60 p-4 text-center space-y-1.5">
+                <span className="material-symbols-outlined text-3xl text-amber-500">account_balance</span>
+                <p className="text-xs font-bold text-amber-900">Rekening Bank Belum Diatur</p>
+                <p className="text-[11px] text-amber-700 max-w-[260px] mx-auto">
+                  Nomor rekening bank belum dikonfigurasi oleh admin di menu Pengaturan Toko.
+                </p>
+              </div>
+            )}
             <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3.5 text-xs text-amber-900 font-medium">
               <p className="font-bold">Cek Mutasi Rekening</p>
               <p className="text-[11px] text-amber-700 mt-0.5">
-                Verifikasi mutasi masuk sebesar <b>Rp {total.toLocaleString('id-ID')}</b> sebelum mencetak nota.
+                Verifikasi mutasi masuk sebesar <b>Rp {total.toLocaleString('id-ID')}</b> sebelum menyelesaikan transaksi.
               </p>
             </div>
           </div>
@@ -280,10 +304,10 @@ export function PaymentModal({
           <button
             type="button"
             onClick={onConfirmPayment}
-            disabled={isProcessing || isCashInsufficient}
+            disabled={isPaymentDisabled}
             className={cn(
               'flex-[2] py-3.5 rounded-2xl font-sans text-sm sm:text-base font-black text-white transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98]',
-              isCashInsufficient || isProcessing
+              isPaymentDisabled
                 ? 'bg-slate-300 cursor-not-allowed shadow-none'
                 : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/25',
             )}
