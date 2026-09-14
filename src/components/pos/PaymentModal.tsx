@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { cn } from '../../utils/cn'
 
@@ -87,6 +87,8 @@ export function PaymentModal({
     return list.slice(0, 4)
   }, [total])
 
+  const [qrisImageError, setQrisImageError] = useState(false)
+
   const isCashInsufficient = metodeBayar === 'tunai' && uangDiterima < total
   const isTransferMissingConfig =
     metodeBayar === 'transfer' &&
@@ -94,7 +96,7 @@ export function PaymentModal({
       !settings.payment_transfer_account_number?.trim() ||
       !settings.payment_transfer_account_name?.trim())
   const isQrisMissingConfig =
-    metodeBayar === 'qris' && !settings.payment_qris_image_url?.trim()
+    metodeBayar === 'qris' && (!settings.payment_qris_image_url?.trim() || qrisImageError)
   const isPaymentDisabled =
     isProcessing || isCashInsufficient || isTransferMissingConfig || isQrisMissingConfig
 
@@ -241,20 +243,25 @@ export function PaymentModal({
         {/* Konten Tab QRIS */}
         {metodeBayar === 'qris' && (
           <div className="space-y-4 text-center py-2">
-            {settings.payment_qris_image_url ? (
+            {settings.payment_qris_image_url && !qrisImageError ? (
               <div className="mx-auto w-48 h-48 bg-white border border-slate-200 rounded-2xl flex flex-col items-center justify-center p-2 shadow-sm">
                 <img
                   src={settings.payment_qris_image_url}
                   alt="QRIS Toko"
+                  onError={() => setQrisImageError(true)}
                   className="w-full h-full object-contain rounded-xl"
                 />
               </div>
             ) : (
               <div className="mx-auto w-52 h-44 bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-4">
                 <span className="material-symbols-outlined text-4xl text-slate-400">qr_code_2</span>
-                <p className="text-xs font-bold text-slate-700 mt-2">QRIS Belum Dikonfigurasi</p>
+                <p className="text-xs font-bold text-slate-700 mt-2">
+                  {qrisImageError ? 'Gambar QRIS Gagal Dimuat' : 'QRIS Belum Dikonfigurasi'}
+                </p>
                 <p className="text-[10px] text-slate-400 mt-1 max-w-[180px]">
-                  Admin belum mengunggah gambar QRIS di menu Pengaturan Toko.
+                  {qrisImageError
+                    ? 'Format atau host gambar QRIS diblokir kebijakan keamanan. Hubungi admin.'
+                    : 'Admin belum mengunggah gambar QRIS di menu Pengaturan Toko.'}
                 </p>
               </div>
             )}

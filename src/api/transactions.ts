@@ -175,14 +175,25 @@ export async function getTransactionById(
 }
 
 export interface CommittedTransactionResult {
+  transaction?: Transaction
   transaction_id: number
   nomor_nota: string
   payment_status: PaymentStatus
   subtotal: number
+  diskon_persen?: number
   diskon_amount: number
+  ppn_persen?: number
   ppn_amount: number
   total: number
   kembalian: number
+  metode_bayar?: string
+  uang_diterima?: number | null
+  kasir_id?: string | null
+  customer_id?: number | null
+  catatan?: string | null
+  status?: string
+  paid_at?: string | null
+  created_at?: string | null
   items?: TransactionItem[]
   idempotent?: boolean
 }
@@ -239,16 +250,28 @@ export async function commitTransaction(
   }
 
   const responseData = data as Record<string, unknown> | null
+  const trxObj = (responseData?.transaction as Transaction) || undefined
 
   return {
+    transaction: trxObj,
     transaction_id: transactionId,
     nomor_nota: String(responseData?.nomor_nota ?? ''),
     payment_status: (responseData?.payment_status as PaymentStatus) ?? 'dibayar',
     subtotal: Number(responseData?.subtotal ?? payload.subtotal),
+    diskon_persen: Number(responseData?.diskon_persen ?? payload.diskonPersen ?? 0),
     diskon_amount: Number(responseData?.diskon_amount ?? payload.diskonAmount ?? 0),
+    ppn_persen: Number(responseData?.ppn_persen ?? payload.ppnPersen ?? 0),
     ppn_amount: Number(responseData?.ppn_amount ?? payload.ppnAmount ?? 0),
     total: Number(responseData?.total ?? payload.total),
     kembalian: Number(responseData?.kembalian ?? payload.kembalian ?? 0),
+    metode_bayar: String(responseData?.metode_bayar ?? payload.metodeBayar),
+    uang_diterima: responseData?.uang_diterima !== undefined ? Number(responseData.uang_diterima) : payload.uangDiterima,
+    kasir_id: (responseData?.kasir_id as string) ?? kasirId,
+    customer_id: responseData?.customer_id ? Number(responseData.customer_id) : (payload.customerId ?? null),
+    catatan: (responseData?.catatan as string) ?? payload.catatan ?? null,
+    status: (responseData?.status as string) ?? 'selesai',
+    paid_at: (responseData?.paid_at as string) ?? null,
+    created_at: (responseData?.created_at as string) ?? null,
     items: Array.isArray(responseData?.items) ? (responseData.items as TransactionItem[]) : undefined,
     idempotent: Boolean(responseData?.idempotent),
   }

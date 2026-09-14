@@ -124,6 +124,7 @@ export function POSPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const checkoutIdempotencyKeyRef = useRef<string | null>(null)
+  const lastCheckoutFingerprintRef = useRef<string | null>(null)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [isHeldModalOpen, setIsHeldModalOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -653,10 +654,23 @@ export function POSPage() {
 
     processingPaymentRef.current = true
     setProcessingPayment(true)
-    // Gunakan key stabil selama modal terbuka; hanya buat baru jika belum ada
-    if (!checkoutIdempotencyKeyRef.current) {
+
+    // Buat fingerprint payload untuk rotasi key otomatis jika payload berubah
+    const currentFingerprint = JSON.stringify({
+      items: items.map((i) => `${i.product_id}:${i.unit_id ?? 'b'}:${i.qty}:${i.harga_satuan}`),
+      subtotal,
+      diskon_persen,
+      diskon_amount,
+      total,
+      metode_bayar,
+      uang_diterima: metode_bayar === 'tunai' ? uang_diterima : null,
+      customer_id: selectedCustomer?.id ?? null,
+    })
+
+    if (!checkoutIdempotencyKeyRef.current || lastCheckoutFingerprintRef.current !== currentFingerprint) {
       const nonce = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now())
       checkoutIdempotencyKeyRef.current = `zeepos-${nonce}`
+      lastCheckoutFingerprintRef.current = currentFingerprint
     }
     const idempotencyKey = checkoutIdempotencyKeyRef.current
 
@@ -717,27 +731,27 @@ export function POSPage() {
       setIsPaymentModalOpen(false)
       audioFeedback.playSuccessChime()
 
-      const receiptTx: Transaction = {
+      const receiptTx: Transaction = committed.transaction ?? {
         id: committed.transaction_id,
         nomor_nota: committed.nomor_nota,
-        kasir_id: user?.id ?? null,
+        kasir_id: committed.kasir_id ?? user?.id ?? null,
         subtotal: committed.subtotal,
-        diskon_persen: diskon_persen,
+        diskon_persen: committed.diskon_persen ?? diskon_persen,
         diskon_amount: committed.diskon_amount,
-        ppn_persen: ppn_persen,
+        ppn_persen: committed.ppn_persen ?? ppn_persen,
         ppn_amount: committed.ppn_amount,
         total: committed.total,
-        metode_bayar,
-        uang_diterima: metode_bayar === 'tunai' ? uang_diterima : null,
+        metode_bayar: (committed.metode_bayar as Transaction['metode_bayar']) ?? metode_bayar,
+        uang_diterima: committed.uang_diterima !== undefined ? committed.uang_diterima : (metode_bayar === 'tunai' ? uang_diterima : null),
         kembalian: committed.kembalian,
-        catatan: null,
-        status: 'selesai',
+        catatan: committed.catatan ?? null,
+        status: (committed.status as Transaction['status']) ?? 'selesai',
         payment_status: committed.payment_status,
-        paid_at: new Date().toISOString(),
+        paid_at: committed.paid_at ?? new Date().toISOString(),
         payment_reference: null,
         confirmed_by: null,
         idempotency_key: idempotencyKey,
-        created_at: new Date().toISOString(),
+        created_at: committed.created_at ?? new Date().toISOString(),
       }
 
       const receiptItms: TransactionItem[] =
@@ -779,6 +793,7 @@ export function POSPage() {
 
       clearCart()
       checkoutIdempotencyKeyRef.current = null
+      lastCheckoutFingerprintRef.current = null
       setSelectedCustomer(null)
       setSearchQuery('')
       setPpnPersen(Number(settings.ppn_persen ?? 0))

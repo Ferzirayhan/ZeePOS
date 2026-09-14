@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   getCustomers,
   createCustomer,
@@ -90,19 +90,25 @@ export function CustomersPage() {
     }
   }
 
+  // Map untuk menyimpan idempotency key per-receivable ID agar stabil bahkan jika modal ditutup-buka
+  const receivableIdempotencyMap = useRef<Record<number, string>>({})
+
   const handleOpenPayModal = (r: Receivable) => {
     setSelectedReceivable(r)
     setNominalBayar(String(r.sisa_hutang))
     setMetodeBayar('tunai')
     setCatatanBayar('')
-    setPaymentIdempotencyKey(crypto.randomUUID())
+    if (!receivableIdempotencyMap.current[r.id]) {
+      receivableIdempotencyMap.current[r.id] = crypto.randomUUID()
+    }
+    setPaymentIdempotencyKey(receivableIdempotencyMap.current[r.id])
   }
 
   const handleClosePayModal = () => {
     setSelectedReceivable(null)
     setNominalBayar('')
     setCatatanBayar('')
-    setPaymentIdempotencyKey('')
+    // Biarkan key tersimpan di ref sampai pembayaran benar-benar berhasil terkonfirmasi
   }
 
   const handlePaySubmit = async (e: React.FormEvent) => {
@@ -126,6 +132,7 @@ export function CustomersPage() {
         idempotencyKey: keyToUse,
       })
 
+      delete receivableIdempotencyMap.current[selectedReceivable.id]
       handleClosePayModal()
       pushToast({
         title: 'Pembayaran Piutang Berhasil',
