@@ -10,7 +10,7 @@ function baseItem(overrides: Partial<CartItem> = {}): CartItem {
     harga_satuan: 10000,
     qty: 2,
     subtotal: 20000,
-    stok_tersedia: 10,
+    stok_dasar: 10,
     satuan: 'pcs',
     discount_tiers: [],
     diskon_produk_persen: 0,

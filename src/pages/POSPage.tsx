@@ -22,7 +22,7 @@ import {
 import type { DiscountTierRow } from '../api/products'
 import { getSettings } from '../api/settings'
 import { getAllProductUnitsMap, getProductUnitByBarcode } from '../api/units'
-import { getUnitChoices, findUnitChoice } from '../lib/units'
+import { getUnitChoices, findUnitChoice, remainingBaseStockByProduct } from '../lib/units'
 import type { ProductUnit } from '../types/database'
 import { CartItem } from '../components/pos/CartItem'
 import { ProductCard } from '../components/pos/ProductCard'
@@ -53,6 +53,7 @@ import type {
   TransactionItem,
   TransactionWithKasir,
 } from '../types/database'
+import type { CartItem as CartItemType } from '../types'
 import { cn } from '../utils/cn'
 
 function getPreviewNomorNota() {
@@ -329,6 +330,29 @@ export function POSPage() {
   const allCategoryCount = useMemo(
     () => products.filter((product) => Number(product.stok ?? 0) > 0).length,
     [products],
+  )
+
+  // Sisa stok dasar tiap produk setelah dikurangi seluruh kebutuhan keranjang
+  // (agregat lintas satuan: pcs + dus produk sama dijumlahkan).
+  const remainingBaseStock = useMemo(
+    () =>
+      remainingBaseStockByProduct(
+        items,
+        new Map(items.map((item) => [item.product_id, Number(item.stok_dasar ?? 0)])),
+      ),
+    [items],
+  )
+
+  // Sisa stok dalam satuan line tertentu = (sisa stok dasar + kebutuhan line ini)
+  // dibagi rasio. Sisa dasar sudah memperhitungkan semua line produk yang sama,
+  // jadi penambahannya kembali mengembalikan porsi line ini sendiri.
+  const getLineStock = useCallback(
+    (item: CartItemType) => {
+      const rasio = Number(item.rasio ?? 1)
+      const baseForThisLine = (remainingBaseStock.get(item.product_id) ?? 0) + item.qty * rasio
+      return rasio > 1 ? Math.floor(baseForThisLine / rasio) : baseForThisLine
+    },
+    [remainingBaseStock],
   )
 
   const handleAddProduct = (product: ProductWithCategory) => {
@@ -746,6 +770,9 @@ export function POSPage() {
         const freshProducts = await getProducts({ isActive: true })
         const productMap = new Map(freshProducts.map((product) => [product.id, product]))
 
+        // Validasi stok agregat dalam satuan dasar: kebutuhan semua line produk
+        // yang sama (pcs + dus, dst.) dibandingkan dengan stok dasar di DB.
+        const baseDemandByProduct = new Map<number, number>()
         for (const item of items) {
           const fresh = productMap.get(item.product_id)
 
@@ -758,16 +785,25 @@ export function POSPage() {
             return
           }
 
-          const freshStok = Number(fresh.stok ?? 0)
+          const baseQty = item.qty * Number(item.rasio ?? 1)
+          baseDemandByProduct.set(
+            item.product_id,
+            (baseDemandByProduct.get(item.product_id) ?? 0) + baseQty,
+          )
+        }
 
-          if (item.qty > freshStok) {
-            pushToast({
-              title: 'Stok tidak cukup',
-              description: `Stok ${item.nama_produk} tersisa ${freshStok}, tapi di keranjang ada ${item.qty}.`,
-              variant: 'error',
-            })
-            return
-          }
+        const shortfalls = [...baseDemandByProduct.entries()]
+          .map(([productId, demand]) => ({ product: productMap.get(productId), demand, stok: Number(productMap.get(productId)?.stok ?? 0) }))
+          .filter(({ demand, stok }) => demand > stok)
+
+        if (shortfalls.length > 0) {
+          const first = shortfalls[0]
+          pushToast({
+            title: 'Stok tidak cukup',
+            description: `Stok ${first.product?.nama ?? 'produk'} tersisa ${first.stok}, tapi di keranjang ada ${first.demand}.`,
+            variant: 'error',
+          })
+          return
         }
       }
 
@@ -1377,6 +1413,7 @@ export function POSPage() {
                   <CartItem
                     key={item.unit_id ? `${item.product_id}-${item.unit_id}` : String(item.product_id)}
                     item={item}
+                    stokTersedia={getLineStock(item)}
                     onDecrease={() => {
                       try {
                         updateQty(item.product_id, item.qty - 1, item.unit_id);

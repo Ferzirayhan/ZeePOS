@@ -10,7 +10,7 @@ function line(overrides: Partial<CartItem>): CartItem {
     harga_satuan: 1000,
     qty: 1,
     subtotal: 1000,
-    stok_tersedia: 10,
+    stok_dasar: 10,
     satuan: 'pcs',
     discount_tiers: [],
     diskon_produk_persen: 0,

@@ -290,7 +290,8 @@ export async function getPendingTransactions(): Promise<TransactionWithKasir[]> 
   const wibNow = new Date(now.getTime() + offsetMs)
   const wibDateStr = wibNow.toISOString().slice(0, 10)
   const start = new Date(`${wibDateStr}T00:00:00+07:00`).toISOString()
-  const end = new Date(`${wibDateStr}T23:59:59+07:00`).toISOString()
+  // Batas atas eksklusif: semua transaksi hari ini sampai detik terakhir tercakup.
+  const end = new Date(`${wibDateStr}T00:00:00+07:00`).getTime() + 24 * 60 * 60 * 1000
 
   const { data, error } = await supabase
     .from('transactions_with_kasir')
@@ -298,7 +299,7 @@ export async function getPendingTransactions(): Promise<TransactionWithKasir[]> 
     .eq('status', 'selesai')
     .eq('payment_status', 'menunggu_konfirmasi')
     .gte('created_at', start)
-    .lte('created_at', end)
+    .lt('created_at', new Date(end).toISOString())
     .order('created_at', { ascending: false })
 
   if (error) {

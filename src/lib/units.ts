@@ -73,3 +73,20 @@ export function getRemainingBaseStock(
   const used = demand.get(productId) ?? 0
   return Math.max(Number(productStok) - used, 0)
 }
+
+/**
+ * Sisa stok dasar suatu produk setelah dikurangi seluruh kebutuhan keranjang
+ * (semua line, semua satuan). Dipakai untuk pre-checkout stok dan untuk
+ * menonaktifkan tombol + pada line keranjang.
+ */
+export function remainingBaseStockByProduct(
+  items: { product_id: number; qty: number; rasio?: number }[],
+  stokByProduct: ReadonlyMap<number, number>,
+): Map<number, number> {
+  const demand = aggregateBaseStockDemand(items)
+  const remaining = new Map<number, number>()
+  for (const [productId, stok] of stokByProduct) {
+    remaining.set(productId, Math.max(stok - (demand.get(productId) ?? 0), 0))
+  }
+  return remaining
+}

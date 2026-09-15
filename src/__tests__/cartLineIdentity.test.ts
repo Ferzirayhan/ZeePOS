@@ -139,3 +139,48 @@ describe('cart line identity (product + unit)', () => {
     expect(useCartStore.getState().items.find((item) => !item.unit_id)?.qty).toBe(1)
   })
 })
+
+describe('tier diskon berbasis base qty', () => {
+  beforeEach(() => {
+    useCartStore.getState().clearCart()
+  })
+
+  it('memicu tier min_qty 12 saat beli 1 dus rasio 12 (bukan qty 1)', () => {
+    const product = mockProduct()
+    const dus = mockUnit() // rasio 12
+    const tiers = [{ min_qty: 12, diskon_persen: 10 }]
+
+    useCartStore.getState().addItem(product, tiers, dus)
+
+    const line = useCartStore.getState().items.find((i) => i.unit_id === 5)
+    expect(line?.diskon_item_persen).toBe(10)
+    expect(line?.subtotal).toBe(99000) // 110000 * 1 * 0.9
+  })
+
+  it('tidak memicu tier saat base qty di bawah min_qty', () => {
+    const product = mockProduct()
+    const tiers = [{ min_qty: 24, diskon_persen: 15 }]
+
+    useCartStore.getState().addItem(product, tiers, null) // 1 pcs, base 1
+
+    const line = useCartStore.getState().items.find((i) => !i.unit_id)
+    expect(line?.diskon_item_persen).toBe(0)
+    expect(line?.subtotal).toBe(10000)
+  })
+
+  it('memakai diskon tertinggi di antara tier yang terpenuhi dan diskon produk', () => {
+    const product = mockProduct({ diskon_produk_persen: 5 })
+    const tiers = [
+      { min_qty: 2, diskon_persen: 3 },
+      { min_qty: 6, diskon_persen: 8 },
+    ]
+
+    const store = useCartStore.getState()
+    store.addItem(product, tiers, null)
+    store.updateQty(1, 4) // base 4: tier 3% vs produk 5% -> 5%
+    expect(useCartStore.getState().items[0].diskon_item_persen).toBe(5)
+
+    useCartStore.getState().updateQty(1, 6) // base 6: tier 8% vs produk 5% -> 8%
+    expect(useCartStore.getState().items[0].diskon_item_persen).toBe(8)
+  })
+})

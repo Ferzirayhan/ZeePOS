@@ -3,6 +3,8 @@ import { formatRupiah } from '../../utils/currency'
 
 interface CartItemProps {
   item: CartItemType
+  /** Sisa stok dalam satuan line ini, sudah dikurangi kebutuhan line lain produk yang sama. */
+  stokTersedia: number
   onDecrease: () => void
   onIncrease: () => void
   onRemove: () => void
@@ -10,7 +12,9 @@ interface CartItemProps {
   onOpenNumpad?: () => void
 }
 
-export function CartItem({ item, onDecrease, onIncrease, onRemove, onSetQty, onOpenNumpad }: CartItemProps) {
+const FRACTION_UNITS = ['kg', 'liter', 'pack']
+
+export function CartItem({ item, stokTersedia, onDecrease, onIncrease, onRemove, onSetQty, onOpenNumpad }: CartItemProps) {
   return (
     <div className="flex gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm transition-all hover:border-slate-300">
       {item.foto_url ? (
@@ -78,7 +82,7 @@ export function CartItem({ item, onDecrease, onIncrease, onRemove, onSetQty, onO
             <button
               type="button"
               onClick={onIncrease}
-              disabled={item.qty >= item.stok_tersedia}
+              disabled={item.qty >= stokTersedia}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm transition-all hover:bg-blue-600 hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span className="material-symbols-outlined text-[16px]">add</span>
@@ -98,7 +102,7 @@ export function CartItem({ item, onDecrease, onIncrease, onRemove, onSetQty, onO
           <p className="text-xs sm:text-sm font-black text-slate-900">{formatRupiah(item.subtotal)}</p>
         </div>
 
-        {(item.satuan === 'kg' || item.satuan === 'liter' || item.satuan === 'pack') && (
+        {FRACTION_UNITS.includes(item.satuan) && (
           <div className="mt-2 flex items-center gap-1">
             {[0.25, 0.5, 0.75].map((fraction) => (
               <button
@@ -106,7 +110,7 @@ export function CartItem({ item, onDecrease, onIncrease, onRemove, onSetQty, onO
                 type="button"
                 onClick={() => onSetQty(fraction)}
                 className="rounded-md bg-blue-50 px-2 py-0.5 text-[9px] font-black text-blue-600 border border-blue-100 transition-all hover:bg-blue-600 hover:text-white"
-                disabled={fraction > item.stok_tersedia}
+                disabled={fraction > stokTersedia}
               >
                 {fraction}
               </button>

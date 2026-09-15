@@ -17,7 +17,8 @@ export interface CartItem {
   harga_satuan: number
   qty: number
   subtotal: number
-  stok_tersedia: number
+  /** Stok dasar produk (satuan terkecil), sebelum konversi rasio. */
+  stok_dasar: number
   satuan: string
   foto_url?: string | null
   discount_tiers: DiscountTier[]
