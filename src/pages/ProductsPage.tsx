@@ -31,6 +31,7 @@ import {
 import type { DiscountTierRow, ProductPriceHistory, ProductVariantInput } from '../api/products'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { Modal } from '../components/ui/Modal'
+import { ProductImage } from '../components/ui/ProductImage'
 import { Skeleton } from '../components/ui/Skeleton'
 import { useUIStore } from '../stores/uiStore'
 import { useToastStore } from '../stores/toastStore'
@@ -1843,13 +1844,11 @@ export function ProductsPage() {
                         return (
                           <tr key={product.id} className="group border-t border-[#eef1f1] hover:bg-[#fbfdfd]">
                             <td className="px-5 py-4">
-                              {product.foto_url ? (
-                                <img src={product.foto_url} alt={product.nama ?? 'Produk'} className="h-12 w-12 rounded-[14px] object-cover" />
-                              ) : (
-                                <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-[#eff6ff] text-[#2563eb]">
-                                  <span className="material-symbols-outlined">inventory_2</span>
-                                </div>
-                              )}
+                              <ProductImage
+                                fotoUrl={product.foto_url}
+                                alt={product.nama ?? 'Produk'}
+                                className="h-12 w-12 rounded-[14px] object-cover"
+                              />
                             </td>
                             <td className="px-5 py-4">
                               <div>
@@ -1942,13 +1941,11 @@ export function ProductsPage() {
                     return (
                       <article key={product.id} className="rounded-[18px] border border-[#eef1f1] bg-[#fbfdfd] p-4 shadow-[0_6px_18px_rgba(15,23,42,0.04)]">
                         <div className="flex items-start gap-3">
-                          {product.foto_url ? (
-                            <img src={product.foto_url} alt={product.nama ?? 'Produk'} className="h-14 w-14 rounded-[14px] object-cover" />
-                          ) : (
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] bg-[#eff6ff] text-[#2563eb]">
-                              <span className="material-symbols-outlined">inventory_2</span>
-                            </div>
-                          )}
+                          <ProductImage
+                            fotoUrl={product.foto_url}
+                            alt={product.nama ?? 'Produk'}
+                            className="h-14 w-14 shrink-0 rounded-[14px] object-cover"
+                          />
                           <div className="min-w-0 flex-1">
                             <p className="line-clamp-2 font-extrabold text-[#1b1e20]">{product.nama ?? '-'}</p>
                             <p className="mt-1 text-xs text-[#8b9895]">SKU: {product.sku ?? '-'}</p>
