@@ -32,6 +32,7 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -181,6 +182,29 @@ export function LoginPage() {
                   <span>{loading || isSubmitting ? 'Memproses...' : 'Masuk ke Kasir'}</span>
                   <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                 </button>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue('email', 'admin@zeepos.com', { shouldValidate: true })
+                      setValue('password', 'Admin@123', { shouldValidate: true })
+                    }}
+                    className="flex-1 rounded-xl border border-blue-200 bg-blue-50/70 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100 transition"
+                  >
+                    Auto Fill Admin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue('email', 'kasir1@zeepos.com', { shouldValidate: true })
+                      setValue('password', 'Kasir@123', { shouldValidate: true })
+                    }}
+                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+                  >
+                    Auto Fill Kasir
+                  </button>
+                </div>
 
                 <p className="text-center text-xs text-slate-500 font-medium">
                   Belum punya toko?{' '}
