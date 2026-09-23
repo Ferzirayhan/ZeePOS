@@ -19,8 +19,9 @@ import {
   getProductDiscountTiers,
   getProductPriceHistory,
   getProductStats,
-  getProductsPage,
-  getProductVariants,
+  getAdminProducts,
+  getAdminProductsPage,
+  getAdminProductVariants,
   saveProductDiscountTiers,
   updateCategory,
   updateProduct,
@@ -33,7 +34,13 @@ import { Modal } from '../components/ui/Modal'
 import { Skeleton } from '../components/ui/Skeleton'
 import { useUIStore } from '../stores/uiStore'
 import { useToastStore } from '../stores/toastStore'
-import type { Category, ProductWithCategory, SatuanType } from '../types/database'
+import { useAuthStore } from '../stores/authStore'
+import type {
+  Category,
+  ProductAdminWithCategory,
+  ProductWithCategory,
+  SatuanType,
+} from '../types/database'
 import { formatRupiah } from '../utils/currency'
 import { exportToExcel } from '../utils/export'
 import { cn } from '../utils/cn'
@@ -505,7 +512,8 @@ function VariantSection({
 }) {
   const pushToast = useToastStore((state) => state.pushToast)
   const [open, setOpen] = useState(false)
-  const [variants, setVariants] = useState<ProductWithCategory[]>([])
+  // Harga beli varian hanya ada di jalur baca admin sejak migrasi 067.
+  const [variants, setVariants] = useState<ProductAdminWithCategory[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -523,7 +531,7 @@ function VariantSection({
     if (!open || !rootProduct.id) return
     let mounted = true
     setLoading(true)
-    getProductVariants(rootProduct.id)
+    getAdminProductVariants(rootProduct.id)
       .then((data) => { if (mounted) setVariants(data) })
       .catch(() => { if (mounted) setVariants([]) })
       .finally(() => { if (mounted) setLoading(false) })
@@ -535,7 +543,7 @@ function VariantSection({
     setSaving(true)
     try {
       await createProductVariant(rootProduct, form)
-      const updated = await getProductVariants(rootProduct.id ?? 0)
+      const updated = await getAdminProductVariants(rootProduct.id ?? 0)
       setVariants(updated)
       setShowForm(false)
       setForm({ satuan: 'pcs', harga_beli: 0, harga_jual: 0, stok: 0, stok_minimum: 0, sku: null, barcode: null })
@@ -1322,7 +1330,10 @@ function ProductDrawer({
 export function ProductsPage() {
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed)
   const pushToast = useToastStore((state) => state.pushToast)
-  const [products, setProducts] = useState<ProductWithCategory[]>([])
+  const isAdmin = useAuthStore((state) => state.isAdmin)
+  // Daftar produk dibaca dari `products_admin_with_category` (jalur admin),
+  // satu-satunya sumber `harga_beli` sejak migrasi 067.
+  const [products, setProducts] = useState<ProductAdminWithCategory[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -1374,11 +1385,23 @@ export function ProductsPage() {
   }, [searchInput])
 
   const loadProducts = useCallback(async () => {
+    // Jalur baca admin digerbangi `is_admin()` DI DALAM definisi view, jadi
+    // sesi non-admin mendapat nol baris, bukan error. Rute `/produk` sudah
+    // dibungkus `AdminRoute`, tetapi bila peran berubah di tengah sesi kita
+    // menolak secara eksplisit daripada merender daftar produk kosong yang
+    // menyesatkan.
+    if (!isAdmin) {
+      setProducts([])
+      setTotalCount(0)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
 
     try {
       const [pageResult, categoryResult, statResult] = await Promise.all([
-        getProductsPage({
+        getAdminProductsPage({
           page,
           pageSize,
           search: search || undefined,
@@ -1407,7 +1430,7 @@ export function ProductsPage() {
     } finally {
       setLoading(false)
     }
-  }, [categoryId, page, pageSize, pushToast, search, sortBy, sortDirection, statusFilter, stokFilter])
+  }, [categoryId, isAdmin, page, pageSize, pushToast, search, sortBy, sortDirection, statusFilter, stokFilter])
 
   useEffect(() => {
     void loadProducts()
@@ -1614,7 +1637,18 @@ export function ProductsPage() {
               type="button"
               onClick={async () => {
                 try {
-                  const allProducts = await getProducts()
+                  // Ekspor memuat Harga Beli (klausa 3.1), jadi ia WAJIB
+                  // membaca jalur admin; `products_with_category` tidak lagi
+                  // punya kolom itu sejak migrasi 067.
+                  const allProducts = await getAdminProducts()
+                  if (allProducts.length === 0) {
+                    pushToast({
+                      title: 'Export Dibatalkan',
+                      description: 'Tidak ada produk yang bisa diekspor untuk akun ini.',
+                      variant: 'error',
+                    })
+                    return
+                  }
                   const rows = allProducts.map((p) => ({
                     SKU: p.sku ?? '-',
                     Barcode: p.barcode ?? '-',
@@ -2000,10 +2034,22 @@ export function ProductsPage() {
 
             {!loading && products.length === 0 ? (
               <div className="px-6 py-14 text-center">
-                <p className="text-lg font-extrabold text-[#1b1e20]">Produk tidak ditemukan</p>
-                <p className="mt-2 text-sm text-[#8b9895]">
-                  Ubah filter pencarian atau tambahkan produk baru.
-                </p>
+                {isAdmin ? (
+                  <>
+                    <p className="text-lg font-extrabold text-[#1b1e20]">Produk tidak ditemukan</p>
+                    <p className="mt-2 text-sm text-[#8b9895]">
+                      Ubah filter pencarian atau tambahkan produk baru.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-extrabold text-[#1b1e20]">Akses admin diperlukan</p>
+                    <p className="mt-2 text-sm text-[#8b9895]">
+                      Halaman Produk memuat harga beli, jadi hanya akun admin yang bisa
+                      membukanya. Daftar ini kosong karena hak akses, bukan karena katalog kosong.
+                    </p>
+                  </>
+                )}
               </div>
             ) : null}
 

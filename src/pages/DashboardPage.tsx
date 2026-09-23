@@ -1,6 +1,6 @@
 import { format, parseISO, startOfMonth, startOfWeek } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Bar,
   BarChart,
@@ -123,6 +123,16 @@ export function DashboardPage() {
   })
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [changes, setChanges] = useState<DashboardChangeSummary | null>(null)
+  // Pemisahan akrual vs kas untuk rentang yang sedang dipilih (task 12.5,
+  // design E.3). Penjualan hutang ditandai `dibayar` + `paid_at` oleh
+  // `create_transaction_atomic` walau piutangnya belum lunas, jadi omzet akrual
+  // dan kas yang benar-benar masuk laci harus berdiri sebagai dua angka.
+  // `kasDiterima` boleh negatif ketika refund pada rentang melebihi penerimaan.
+  const [cashSplit, setCashSplit] = useState<{
+    omzetAkrual: number
+    kasDiterima: number
+    piutangBaru: number
+  } | null>(null)
   const [salesTrend, setSalesTrend] = useState<SalesReport[]>([])
   const [categorySales, setCategorySales] = useState<Array<{ category: string; total: number }>>([])
   const [latestTransactions, setLatestTransactions] = useState<TransactionWithKasir[]>([])
@@ -154,6 +164,11 @@ export function DashboardPage() {
           dateTo = customDateRange.to
         }
 
+        // Satu panggilan untuk rentang aktif: menyuplai kartu akrual-vs-kas di
+        // semua mode filter, dan sekaligus menjadi sumber angka stats untuk
+        // rentang selain "hari ini".
+        const summaryPromise = getReportSummary(dateFrom, dateTo)
+
         let statsPromise: Promise<DashboardStats>
         let changesPromise: Promise<DashboardChangeSummary | null>
 
@@ -162,7 +177,7 @@ export function DashboardPage() {
           changesPromise = getDashboardChangeSummary()
         } else {
           statsPromise = Promise.all([
-            getReportSummary(dateFrom, dateTo),
+            summaryPromise,
             getDashboardStats()
           ]).then(([res, currentStats]) => ({
             totalPenjualanHariIni: res.totalPenjualan,
@@ -182,6 +197,7 @@ export function DashboardPage() {
         const [
           statsResult,
           changesResult,
+          summaryResult,
           trendResult,
           categoryResult,
           latestResult,
@@ -189,6 +205,7 @@ export function DashboardPage() {
         ] = await Promise.all([
           statsPromise,
           changesPromise,
+          summaryPromise,
           getSalesByDateRange(dateFrom, dateTo),
           getSalesByCategory(dateFrom, dateTo),
           getLatestTransactions(5),
@@ -201,6 +218,11 @@ export function DashboardPage() {
 
         setStats(statsResult)
         setChanges(changesResult)
+        setCashSplit({
+          omzetAkrual: summaryResult.omzetAkrual,
+          kasDiterima: summaryResult.kasDiterima,
+          piutangBaru: summaryResult.piutangBaru,
+        })
         setSalesTrend(trendResult)
         setCategorySales(categoryResult)
         setLatestTransactions(latestResult)
@@ -285,7 +307,15 @@ export function DashboardPage() {
     }))
   }, [categorySales])
 
-  const summaryCards = [
+  const summaryCards: Array<{
+    title: string
+    icon: string
+    accent: string
+    badge?: string | null
+    badgeTone?: { background: string; color: string }
+    caption?: ReactNode
+    value: ReactNode
+  }> = [
     {
       title: 'Total Penjualan',
       icon: 'payments',
@@ -293,6 +323,31 @@ export function DashboardPage() {
       badge: formatDeltaBadge(changes?.totalPenjualan.percentage ?? null),
       badgeTone: getDeltaTone(changes?.totalPenjualan.percentage ?? null),
       value: stats ? <CurrencyDisplay value={stats.totalPenjualanHariIni} /> : null,
+    },
+    {
+      title: 'Omzet (akrual)',
+      icon: 'trending_up',
+      accent: '#66e5d1',
+      value: cashSplit ? <CurrencyDisplay value={cashSplit.omzetAkrual} /> : null,
+      caption: cashSplit ? (
+        <>
+          Termasuk penjualan hutang <CurrencyDisplay value={cashSplit.piutangBaru} /> yang
+          belum tertagih.
+        </>
+      ) : null,
+    },
+    {
+      title: 'Kas diterima',
+      icon: 'account_balance_wallet',
+      accent: '#f8c88b',
+      value: cashSplit ? (
+        <CurrencyDisplay
+          value={cashSplit.kasDiterima}
+          className={cashSplit.kasDiterima < 0 ? 'text-[#d63f2f]' : undefined}
+        />
+      ) : null,
+      caption:
+        'Tunai, QRIS, transfer, dan cicilan dikurangi refund — penjualan hutang belum termasuk kas.',
     },
     {
       title: 'Jumlah Transaksi',
@@ -573,15 +628,17 @@ export function DashboardPage() {
                   >
                     <span className="material-symbols-outlined text-[20px]">{card.icon}</span>
                   </div>
-                  <span
-                    className="rounded-full px-2.5 py-1 text-[10px] font-bold"
-                    style={{
-                      backgroundColor: card.badgeTone.background,
-                      color: card.badgeTone.color,
-                    }}
-                  >
-                    {card.badge}
-                  </span>
+                  {card.badge ? (
+                    <span
+                      className="rounded-full px-2.5 py-1 text-[10px] font-bold"
+                      style={{
+                        backgroundColor: card.badgeTone?.background,
+                        color: card.badgeTone?.color,
+                      }}
+                    >
+                      {card.badge}
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="mt-5">
@@ -591,6 +648,11 @@ export function DashboardPage() {
                   <div className="mt-1 min-h-[52px] text-[18px] font-extrabold leading-tight text-[#191c1e]">
                     {loading ? <Skeleton className="h-8 w-32 rounded-xl" /> : card.value}
                   </div>
+                  {card.caption && !loading ? (
+                    <p className="text-[11px] font-medium leading-4 text-[#8b9895]">
+                      {card.caption}
+                    </p>
+                  ) : null}
                 </div>
               </article>
             ))}

@@ -117,15 +117,32 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(
         <hr style={{ borderTop: '1px dashed black', borderBottom: 'none', margin: '8px 0' }} />
         
         <div style={{ fontSize: '12px', marginBottom: '8px' }}>
-          {items.map((item) => (
-            <div key={item.id} style={{ marginBottom: '6px' }}>
-              <div style={{ fontWeight: 'bold', wordBreak: 'break-word', marginBottom: '2px' }}>{item.nama_produk}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>{item.qty} x {formatRupiah(Number(item.harga_satuan))}</span>
-                <span>{formatRupiah(Number(item.subtotal))}</span>
+          {items.map((item) => {
+            // subtotal sudah termasuk diskon item, sehingga "qty x harga" saja
+            // tidak pernah cocok dengan angka di kanannya. Tampilkan barisnya
+            // supaya struk bisa direkonsiliasi pelanggan.
+            const hargaSatuan = Number(item.harga_satuan ?? 0)
+            const subtotal = Number(item.subtotal ?? 0)
+            const diskonNominal = Math.max(0, Math.round(Number(item.qty ?? 0) * hargaSatuan - subtotal))
+
+            return (
+              <div key={item.id} style={{ marginBottom: '6px' }}>
+                <div style={{ fontWeight: 'bold', wordBreak: 'break-word', marginBottom: '2px' }}>{item.nama_produk}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>
+                    {item.qty} {item.nama_satuan ?? ''} x {formatRupiah(hargaSatuan)}
+                  </span>
+                  <span>{formatRupiah(diskonNominal > 0 ? Math.round(Number(item.qty ?? 0) * hargaSatuan) : subtotal)}</span>
+                </div>
+                {diskonNominal > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                    <span>Diskon {Number(item.diskon_item_persen ?? 0)}%</span>
+                    <span>-{formatRupiah(diskonNominal)}</span>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         <hr style={{ borderTop: '1px dashed black', borderBottom: 'none', margin: '8px 0' }} />

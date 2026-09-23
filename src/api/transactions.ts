@@ -1,4 +1,10 @@
 import { supabase } from '../lib/supabase'
+import {
+  RequestTimeoutError,
+  SUPABASE_REQUEST_TIMEOUT_MS,
+  isRequestTimeoutError,
+  runWithTimeout,
+} from '../lib/fetchWithTimeout'
 import type {
   MetodeBayar,
   PaymentStatus,
@@ -198,6 +204,47 @@ export interface CommittedTransactionResult {
   idempotent?: boolean
 }
 
+/**
+ * Pesan yang dapat ditindaklanjuti untuk checkout yang melewati batas waktu
+ * (design C.1, Property 13). Kalimat kedua penting bagi kasir: ia menjelaskan
+ * bahwa menekan "Coba Lagi" aman karena kunci idempotensi tidak dirotasi
+ * selama payload keranjang tidak berubah (Property 14).
+ */
+export const CHECKOUT_TIMEOUT_MESSAGE =
+  `Server tidak merespons dalam ${SUPABASE_REQUEST_TIMEOUT_MS / 1000} detik. ` +
+  'Periksa koneksi lalu tekan Coba Lagi — transaksi tidak akan terkirim dua kali.'
+
+/** Label deadline checkout; dipakai `runWithTimeout` dan log diagnostik. */
+export const CHECKOUT_TIMEOUT_LABEL = 'Server'
+
+/**
+ * Kegagalan checkout karena batas waktu.
+ *
+ * Tetap `RequestTimeoutError` supaya `isRequestTimeoutError()` mengenalinya,
+ * tetapi `message`-nya diganti pesan yang dapat ditindaklanjuti agar lapisan UI
+ * cukup menampilkan `error.message`.
+ */
+export class CheckoutTimeoutError extends RequestTimeoutError {
+  constructor(timeoutMs: number = SUPABASE_REQUEST_TIMEOUT_MS) {
+    super(CHECKOUT_TIMEOUT_LABEL, timeoutMs)
+    this.name = 'CheckoutTimeoutError'
+    this.message = CHECKOUT_TIMEOUT_MESSAGE
+  }
+}
+
+/**
+ * Checkout dengan deadline keras.
+ *
+ * Task 1 mengukur bahwa tanpa ini, `supabase.rpc` yang tidak pernah settle
+ * membuat blok `finally` pemanggil tidak pernah berjalan setelah 60 detik
+ * (`{ elapsedMs: 60000, finallyRan: false, settled: 'pending' }`), sehingga
+ * `processingPayment` terkunci true dan kasir tidak tahu apakah penjualannya
+ * masuk. `runWithTimeout` menjamin promise ini SELALU settle sebelum deadline.
+ *
+ * Kunci idempotensi **tidak** disentuh di sini: payload tidak berubah, jadi
+ * percobaan ulang memakai kunci yang sama dan server mengembalikan struk
+ * recovery alih-alih transaksi kedua (Property 14).
+ */
 export async function commitTransaction(
   payload: CreateTransactionInput,
 ): Promise<CommittedTransactionResult> {
@@ -205,6 +252,24 @@ export async function commitTransaction(
     throw new Error('Keranjang transaksi tidak boleh kosong')
   }
 
+  try {
+    return await runWithTimeout(
+      () => sendCommitTransaction(payload),
+      SUPABASE_REQUEST_TIMEOUT_MS,
+      CHECKOUT_TIMEOUT_LABEL,
+    )
+  } catch (error) {
+    if (isRequestTimeoutError(error)) {
+      throw new CheckoutTimeoutError(SUPABASE_REQUEST_TIMEOUT_MS)
+    }
+
+    throw error
+  }
+}
+
+async function sendCommitTransaction(
+  payload: CreateTransactionInput,
+): Promise<CommittedTransactionResult> {
   const kasirId = await getCurrentProfileId()
   if (!kasirId) {
     throw new Error('Sesi kasir tidak ditemukan')
@@ -364,4 +429,91 @@ export async function cancelTransaction(id: number): Promise<Transaction> {
   )
 
   return detail.transaction
+}
+
+export interface RefundResult {
+  success: boolean
+  refund_id: number
+  transaction_id: number
+  nomor_nota: string
+  status: string
+  total_refund: number
+  idempotent: boolean
+}
+
+export interface RefundTransactionInput {
+  transactionId: number
+  alasan: string
+  idempotencyKey: string
+}
+
+/**
+ * Refund transaksi yang sudah lunas (design B.1, Property 10).
+ *
+ * `refund_transaction_atomic` (migrasi 060, di-re-emit 067) sudah memulihkan
+ * stok, membalik piutang, menulis `transaction_refunds`, dan men-set transaksi
+ * `batal` secara atomik — tetapi sebelum fungsi ini tidak ada satu pun pemanggil
+ * di `src/`, jadi kemampuan itu tidak dapat dijangkau dari aplikasi.
+ *
+ * Batasan server yang perlu diketahui pemanggil:
+ * - admin-only; kasir ditolak RPC.
+ * - refund **tunai** membutuhkan shift kasir aktif ("Refund tunai membutuhkan
+ *   shift kasir aktif. Buka shift terlebih dahulu."). Refund non-tunai (QRIS,
+ *   transfer, hutang) tidak butuh shift.
+ * - fingerprint idempotensi server = `sha256({transaction_id, alasan})`, jadi
+ *   memakai ulang kunci dengan alasan berbeda ditolak. Rotasi kunci di sisi UI
+ *   adalah tanggung jawab pemanggil; pesan server diteruskan apa adanya supaya
+ *   penyebabnya terbaca.
+ */
+export async function refundTransaction(
+  input: RefundTransactionInput,
+): Promise<RefundResult> {
+  const alasan = input.alasan?.trim() ?? ''
+  const idempotencyKey = input.idempotencyKey?.trim() ?? ''
+
+  // Ditolak lokal, meniru `payReceivable`: kesalahan yang sudah jelas tidak
+  // perlu menunggu round-trip, dan tidak boleh membakar kunci idempotensi.
+  if (!alasan) {
+    throw new Error('Alasan refund wajib diisi')
+  }
+
+  if (!idempotencyKey) {
+    throw new Error(
+      'Kunci idempotensi (idempotency key) wajib disertakan untuk mencegah refund ganda',
+    )
+  }
+
+  const { data, error } = await supabase.rpc('refund_transaction_atomic' as never, {
+    p_transaction_id: input.transactionId,
+    p_alasan: alasan,
+    p_idempotency_key: idempotencyKey,
+  } as never)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const response = (data ?? null) as Record<string, unknown> | null
+
+  if (!response?.success) {
+    throw new Error('Refund tidak dikonfirmasi server')
+  }
+
+  // Konsisten dengan `cancelTransaction`: tunggu sampai jalur baca melihat
+  // status `batal` supaya UI tidak menampilkan transaksi yang sudah direfund
+  // sebagai masih `selesai`.
+  await waitForTransactionDetail(
+    input.transactionId,
+    (detail) => detail.transaction.status === 'batal',
+  )
+
+  return {
+    success: true,
+    refund_id: Number(response.refund_id ?? 0),
+    transaction_id: Number(response.transaction_id ?? input.transactionId),
+    nomor_nota: String(response.nomor_nota ?? ''),
+    status: String(response.status ?? 'batal'),
+    total_refund: Number(response.total_refund ?? 0),
+    idempotent: Boolean(response.idempotent),
+  }
 }

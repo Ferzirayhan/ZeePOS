@@ -1,8 +1,13 @@
 import { supabase } from '../lib/supabase'
+import {
+  PHOTO_UPLOAD_TIMEOUT_MS,
+  REQUEST_TIMEOUT_HEADER,
+} from '../lib/fetchWithTimeout'
 import type {
   Category,
   Database,
   Product,
+  ProductAdminWithCategory,
   ProductWithCategory,
   StokStatus,
 } from '../types/database'
@@ -25,6 +30,25 @@ export interface ProductPageResult {
   data: ProductWithCategory[]
   count: number
 }
+
+export interface AdminProductPageResult {
+  data: ProductAdminWithCategory[]
+  count: number
+}
+
+/**
+ * View katalog kasir (migrasi 067): 19 kolom, TANPA `harga_beli`.
+ * `security_invoker = true`, jadi RLS tenant pemanggil yang menyaring baris.
+ */
+export const PRODUCTS_CATALOG_VIEW = 'products_with_category' as const
+
+/**
+ * View jalur admin (migrasi 067): 20 kolom = katalog kasir + `harga_beli`.
+ * `security_invoker = false` dengan gerbang `tenant_id = get_my_tenant_id()
+ * AND is_admin()` DI DALAM definisi view. Konsekuensi yang harus ditangani
+ * pemanggil: sesi non-admin menerima NOL BARIS, bukan error hak akses.
+ */
+export const PRODUCTS_ADMIN_VIEW = 'products_admin_with_category' as const
 
 export async function getCategories(includeInactive = false): Promise<Category[]> {
   let query = supabase.from('categories').select('*').order('nama', { ascending: true })
@@ -120,6 +144,99 @@ export async function getProductsPage(
     data: data ?? [],
     count: count ?? 0,
   }
+}
+
+/**
+ * Jalur baca admin untuk daftar produk berhalaman. Identik dengan
+ * `getProductsPage` kecuali sumbernya `products_admin_with_category`, sehingga
+ * `harga_beli` (kolom Harga Beli, Margin%, dan sorting `harga_beli`) tersedia.
+ *
+ * Sesi non-admin menerima `{ data: [], count: 0 }` karena gerbang `is_admin()`
+ * ada di dalam definisi view — pemanggil wajib membedakan "bukan admin" dari
+ * "katalog kosong" sebelum menampilkan daftar kosong.
+ */
+export async function getAdminProductsPage(
+  filters: ProductPageFilters = {},
+): Promise<AdminProductPageResult> {
+  const page = filters.page ?? 1
+  const pageSize = filters.pageSize ?? 10
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+
+  let query = supabase
+    .from(PRODUCTS_ADMIN_VIEW)
+    .select('*', { count: 'exact' })
+    .order(filters.sortBy ?? 'updated_at', {
+      ascending: (filters.sortDirection ?? 'desc') === 'asc',
+      nullsFirst: false,
+    })
+    .range(from, to)
+
+  if (filters.search) {
+    query = query.or(
+      `nama.ilike.%${filters.search}%,sku.ilike.%${filters.search}%,barcode.ilike.%${filters.search}%`,
+    )
+  }
+
+  if (typeof filters.categoryId === 'number') {
+    query = query.eq('category_id', filters.categoryId)
+  }
+
+  if (typeof filters.isActive === 'boolean') {
+    query = query.eq('is_active', filters.isActive)
+  }
+
+  if (filters.stokStatus) {
+    query = query.eq('stok_status', filters.stokStatus)
+  }
+
+  const { data, error, count } = await query
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return {
+    data: data ?? [],
+    count: count ?? 0,
+  }
+}
+
+/**
+ * Jalur baca admin untuk daftar produk tanpa paginasi (dipakai ekspor XLSX).
+ * Sama seperti `getProducts`, tetapi memuat `harga_beli` (klausa 3.1).
+ */
+export async function getAdminProducts(
+  filters: ProductFilters = {},
+): Promise<ProductAdminWithCategory[]> {
+  let query = supabase
+    .from(PRODUCTS_ADMIN_VIEW)
+    .select('*')
+    .order('nama', { ascending: true })
+
+  if (filters.search) {
+    query = query.ilike('nama', `%${filters.search}%`)
+  }
+
+  if (typeof filters.categoryId === 'number') {
+    query = query.eq('category_id', filters.categoryId)
+  }
+
+  if (typeof filters.isActive === 'boolean') {
+    query = query.eq('is_active', filters.isActive)
+  }
+
+  if (filters.stokStatus) {
+    query = query.eq('stok_status', filters.stokStatus)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data ?? []
 }
 
 export async function getProductByBarcode(
@@ -273,6 +390,11 @@ export async function uploadProductPhoto(file: File): Promise<string> {
   const { error } = await supabase.storage.from('products').upload(filePath, file, {
     cacheControl: '3600',
     upsert: false,
+    // Unggahan gambar wajar melewati batas waktu default 15 detik, jadi
+    // permintaan ini meminta deadline yang lebih longgar. `FileOptions` tidak
+    // menyediakan `signal`, sehingga permintaannya dititipkan lewat header
+    // internal yang dibaca lalu dibuang oleh pembungkus fetch.
+    headers: { [REQUEST_TIMEOUT_HEADER]: String(PHOTO_UPLOAD_TIMEOUT_MS) },
   })
 
   if (error) {
@@ -449,11 +571,15 @@ export interface ProductVariantInput {
   diskon_produk_persen?: number
 }
 
-export async function getProductVariants(
+/**
+ * Jalur baca admin untuk varian satu grup produk. Dipakai panel Varian Unit di
+ * halaman Produk, yang menampilkan harga beli varian (klausa 3.1).
+ */
+export async function getAdminProductVariants(
   groupId: number,
-): Promise<ProductWithCategory[]> {
+): Promise<ProductAdminWithCategory[]> {
   const { data, error } = await supabase
-    .from('products_with_category')
+    .from(PRODUCTS_ADMIN_VIEW)
     .select('*')
     .eq('product_group_id', groupId)
     .order('satuan', { ascending: true })

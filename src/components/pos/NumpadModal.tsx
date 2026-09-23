@@ -11,6 +11,44 @@ interface NumpadModalProps {
   minValue?: number
   maxValue?: number
   quickOptions?: number[]
+  /**
+   * Jumlah desimal yang diizinkan. Default 0 = numpad bilangan bulat, yaitu
+   * perilaku sebelum presisi desimal ditambahkan (Property 17: jalur qty bulat
+   * dan seluruh call site rupiah tidak boleh berubah sedikit pun).
+   * Untuk baris bersatuan pecahan, pakai `getQtyDecimals(satuan)` dari
+   * `src/lib/units.ts` — plafonnya terikat pada `transaction_items.qty NUMERIC(12,3)`.
+   */
+  decimalPlaces?: number
+  /**
+   * Satuan kenaikan terkecil yang dimaksud call site (mis. `0.01`). Disediakan
+   * agar call site dapat mendeklarasikannya bersama `minValue`; presisi input
+   * itu sendiri dikendalikan `decimalPlaces`.
+   */
+  step?: number
+}
+
+/** Bentuk internal `valueStr` memakai titik sebagai separator desimal agar
+ *  parsing tidak bergantung locale; tampilan baru diformat ke id-ID. */
+const INTERNAL_SEPARATOR = '.'
+
+/** Membulatkan ke `decimals` desimal tanpa menyeret galat float (0.145 dst). */
+function roundTo(value: number, decimals: number): number {
+  if (decimals <= 0) return value
+  return Number(value.toFixed(decimals))
+}
+
+/**
+ * Normalisasi nilai awal ke bentuk minimal: `0.250` → `"0.25"`, `3` → `"3"`.
+ * Pada `decimals = 0` string dibentuk persis seperti sebelumnya agar jalur
+ * bilangan bulat tidak berubah.
+ */
+function normalizeInitialValue(value: number, decimals: number): string {
+  if (decimals <= 0) return String(value || '0')
+  if (!Number.isFinite(value) || value === 0) return '0'
+  const fixed = value.toFixed(decimals)
+  if (!fixed.includes('.')) return fixed
+  const trimmed = fixed.replace(/0+$/, '').replace(/\.$/, '')
+  return trimmed === '' ? '0' : trimmed
 }
 
 function NumpadContent({
@@ -20,22 +58,43 @@ function NumpadContent({
   minValue = 0,
   maxValue = 999999999,
   quickOptions,
+  decimalPlaces = 0,
   onConfirm,
   onClose,
 }: Omit<NumpadModalProps, 'isOpen'>) {
-  const [valueStr, setValueStr] = useState<string>(String(initialValue || '0'))
+  const allowsDecimal = decimalPlaces > 0
+  const [valueStr, setValueStr] = useState<string>(() =>
+    normalizeInitialValue(initialValue, decimalPlaces),
+  )
+  const hasSeparator = valueStr.includes(INTERNAL_SEPARATOR)
 
   const handleDigit = useCallback(
     (digit: string) => {
       setValueStr((prev) => {
+        const sepIndex = prev.indexOf(INTERNAL_SEPARATOR)
+        if (sepIndex >= 0) {
+          // Presisi baris sudah penuh → digit diabaikan. Inilah yang mencegah
+          // 0,25 menjadi 0,255 pada baris berpresisi 2 desimal.
+          if (prev.length - sepIndex - 1 >= decimalPlaces) return prev
+          const next = prev + digit
+          if (Number(next) > maxValue) return prev
+          return next
+        }
         if (prev === '0') return digit
         const next = prev + digit
         if (Number(next) > maxValue) return prev
         return next
       })
     },
-    [maxValue],
+    [decimalPlaces, maxValue],
   )
+
+  const handleSeparator = useCallback(() => {
+    if (!allowsDecimal) return
+    setValueStr((prev) =>
+      prev.includes(INTERNAL_SEPARATOR) ? prev : (prev === '' ? '0' : prev) + INTERNAL_SEPARATOR,
+    )
+  }, [allowsDecimal])
 
   const handleBackspace = useCallback(() => {
     setValueStr((prev) => (prev.length > 1 ? prev.slice(0, -1) : '0'))
@@ -46,18 +105,26 @@ function NumpadContent({
   }, [])
 
   const handleConfirm = useCallback(() => {
-    const num = Number(valueStr) || 0
+    // Dibulatkan lebih dulu, baru dibandingkan dengan batas, supaya nilai yang
+    // sah tidak ditolak karena galat representasi float.
+    const num = roundTo(Number(valueStr) || 0, decimalPlaces)
     if (num >= minValue && num <= maxValue) {
       onConfirm(num)
       onClose()
     }
-  }, [valueStr, minValue, maxValue, onConfirm, onClose])
+  }, [valueStr, decimalPlaces, minValue, maxValue, onConfirm, onClose])
 
   // Keyboard support
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key >= '0' && e.key <= '9') {
         handleDigit(e.key)
+      } else if (e.key === ',' || e.key === '.') {
+        // Keyboard Indonesia memakai koma, numpad fisik mengirim titik.
+        if (allowsDecimal) {
+          e.preventDefault()
+          handleSeparator()
+        }
       } else if (e.key === 'Backspace') {
         handleBackspace()
       } else if (e.key === 'Enter') {
@@ -72,14 +139,34 @@ function NumpadContent({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleDigit, handleBackspace, handleConfirm, handleClear, onClose])
+  }, [
+    allowsDecimal,
+    handleDigit,
+    handleSeparator,
+    handleBackspace,
+    handleConfirm,
+    handleClear,
+    onClose,
+  ])
 
   const displayFormatted = () => {
-    const n = Number(valueStr) || 0
-    if (isCurrency) {
-      return 'Rp ' + n.toLocaleString('id-ID')
+    if (!allowsDecimal) {
+      const n = Number(valueStr) || 0
+      return isCurrency ? 'Rp ' + n.toLocaleString('id-ID') : n.toLocaleString('id-ID')
     }
-    return n.toLocaleString('id-ID')
+
+    // Bagian desimal ditampilkan apa adanya (termasuk separator yang baru
+    // ditekan dan nol yang sedang diketik), bagian bulat memakai pemisah ribuan
+    // id-ID. Nilai utuh tetap dibatasi `maximumFractionDigits: decimalPlaces`.
+    const sepIndex = valueStr.indexOf(INTERNAL_SEPARATOR)
+    const intPart = sepIndex >= 0 ? valueStr.slice(0, sepIndex) : valueStr
+    const fracPart = sepIndex >= 0 ? valueStr.slice(sepIndex + 1, sepIndex + 1 + decimalPlaces) : null
+    const intText = (Number(intPart) || 0).toLocaleString('id-ID', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })
+    const text = fracPart === null ? intText : intText + ',' + fracPart
+    return isCurrency ? 'Rp ' + text : text
   }
 
   return (
@@ -111,10 +198,17 @@ function NumpadContent({
               <button
                 key={opt}
                 type="button"
-                onClick={() => setValueStr(String(opt))}
+                onClick={() => setValueStr(normalizeInitialValue(opt, decimalPlaces))}
                 className="py-2 px-1 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 hover:bg-[#eff6ff] hover:border-[#2563eb] hover:text-[#2563eb] transition"
               >
-                {isCurrency ? `+${opt / 1000}rb` : `${opt}`}
+                {isCurrency
+                  ? `+${opt / 1000}rb`
+                  : allowsDecimal
+                    ? opt.toLocaleString('id-ID', {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: decimalPlaces,
+                      })
+                    : `${opt}`}
               </button>
             ))}
           </div>
@@ -153,6 +247,20 @@ function NumpadContent({
           >
             <span className="material-symbols-outlined text-2xl">backspace</span>
           </button>
+          {/* Separator desimal hanya untuk baris bersatuan pecahan (kg, gram,
+              meter, liter). Tanpa tombol ini, 0,25 kg tidak dapat diketik sama sekali. */}
+          {allowsDecimal && (
+            <button
+              type="button"
+              onClick={handleSeparator}
+              disabled={hasSeparator}
+              aria-label=","
+              title="Separator desimal"
+              className="col-span-3 h-14 rounded-2xl border border-slate-200 bg-slate-50 font-display text-2xl font-black text-slate-800 hover:bg-slate-100 active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+            >
+              ,
+            </button>
+          )}
         </div>
 
         {/* Action Button */}

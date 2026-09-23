@@ -5,6 +5,30 @@ function textBytes(text: string): number[] {
   return Array.from(new TextEncoder().encode(text))
 }
 
+/**
+ * Satu baris barang pada struk thermal.
+ *
+ * Bentuk kanonik memakai `unit`/`unitPrice`/`discountPercent`/`lineTotal`, tetapi
+ * nama kolom `TransactionItem` (`satuan`/`nama_satuan`, `harga_satuan`,
+ * `diskon_item_persen`) juga diterima supaya pemanggil dapat meneruskan baris
+ * transaksi apa adanya. `price` dipertahankan sebagai alias `lineTotal` agar
+ * pemanggil lama tidak pecah.
+ */
+export interface ReceiptItem {
+  name: string
+  qty: number
+  unit?: string | null
+  satuan?: string | null
+  nama_satuan?: string | null
+  unitPrice?: number | null
+  harga_satuan?: number | null
+  discountPercent?: number | null
+  diskon_item_persen?: number | null
+  lineTotal?: number | null
+  /** Alias lama untuk `lineTotal`. */
+  price?: number | null
+}
+
 export interface ReceiptData {
   store_name?: string
   store_address?: string
@@ -13,11 +37,7 @@ export interface ReceiptData {
   created_at?: string
   cashier?: string
   customer_name?: string
-  items: Array<{
-    name: string
-    qty: number
-    price: number
-  }>
+  items: ReceiptItem[]
   subtotal: number
   discount_total?: number
   ppn_total?: number
@@ -31,6 +51,62 @@ export interface ReceiptData {
 
 function formatCurrency(val: number): string {
   return 'Rp ' + Number(val || 0).toLocaleString('id-ID')
+}
+
+/**
+ * Membagi `text` menjadi baris-baris yang tidak melebihi `width` kolom.
+ *
+ * Pemenggalan dilakukan pada batas kata; hanya kata yang memang lebih panjang
+ * dari `width` yang dipotong keras. Tidak ada karakter non-spasi yang dibuang —
+ * inilah pengganti `slice(0, width)` yang dulu memotong ekor nama produk.
+ */
+export function wrapText(text: string, width: number): string[] {
+  const safeWidth = Math.max(1, Math.floor(width))
+  const words = String(text ?? '')
+    .split(/\s+/)
+    .filter(Boolean)
+
+  const lines: string[] = []
+  let current = ''
+
+  for (const word of words) {
+    if (word.length > safeWidth) {
+      // Kata yang memang melebihi lebar kertas: potong keras, jangan dibuang.
+      if (current) {
+        lines.push(current)
+        current = ''
+      }
+      let rest = word
+      while (rest.length > safeWidth) {
+        lines.push(rest.slice(0, safeWidth))
+        rest = rest.slice(safeWidth)
+      }
+      current = rest
+      continue
+    }
+
+    if (!current) {
+      current = word
+    } else if (current.length + 1 + word.length <= safeWidth) {
+      current += ' ' + word
+    } else {
+      lines.push(current)
+      current = word
+    }
+  }
+
+  if (current) lines.push(current)
+  return lines
+}
+
+/**
+ * Format qty untuk struk: `2` → `"2"`, `0.5` → `"0,5"`, `0.25` → `"0,25"`.
+ * Koma sebagai pemisah desimal (id-ID), tanpa nol berlebih di belakang.
+ */
+export function formatQty(qty: number): string {
+  const n = Number(qty)
+  if (!Number.isFinite(n)) return '0'
+  return n.toLocaleString('id-ID', { maximumFractionDigits: 3 })
 }
 
 export function buildReceiptBytes(data: ReceiptData, paperSize: '58mm' | '80mm' = '58mm'): Uint8Array {
@@ -48,6 +124,28 @@ export function buildReceiptBytes(data: ReceiptData, paperSize: '58mm' | '80mm' 
   const leftRight = (l: string, r: string) => {
     const space = Math.max(1, width - l.length - r.length)
     bytes.push(...textBytes(l + ' '.repeat(space) + r + '\n'))
+  }
+
+  const write = (text: string) => {
+    bytes.push(...textBytes(text + '\n'))
+  }
+
+  /**
+   * Seperti `leftRight`, tetapi bila kedua sisi tidak muat dalam satu baris
+   * maka dipecah menjadi dua baris (kiri di-wrap, kanan rata kanan) alih-alih
+   * meluber atau terpotong.
+   */
+  const leftRightWrapped = (l: string, r: string) => {
+    if (l.length + 1 + r.length <= width) {
+      leftRight(l, r)
+      return
+    }
+    const indent = /^ */.exec(l)?.[0] ?? ''
+    const body = l.slice(indent.length)
+    for (const wrapped of wrapText(body, Math.max(1, width - indent.length))) {
+      write(indent + wrapped)
+    }
+    write(' '.repeat(Math.max(0, width - r.length)) + r)
   }
 
   const line = () => {
@@ -79,9 +177,25 @@ export function buildReceiptBytes(data: ReceiptData, paperSize: '58mm' | '80mm' 
 
   // Daftar Barang
   for (const item of data.items) {
-    const title = item.name.slice(0, width)
-    bytes.push(...textBytes(title + '\n'))
-    leftRight(`  ${item.qty}x`, formatCurrency(item.price))
+    const unit = String(item.unit ?? item.satuan ?? item.nama_satuan ?? '').trim()
+    const unitPriceRaw = item.unitPrice ?? item.harga_satuan
+    const unitPrice = unitPriceRaw == null ? null : Number(unitPriceRaw)
+    const lineTotal = Number(item.lineTotal ?? item.price ?? 0)
+    const discountPercent = Number(item.discountPercent ?? item.diskon_item_persen ?? 0)
+
+    // Nama di-wrap, bukan dipotong: ekor nama produk panjang harus tetap tercetak.
+    for (const nameLine of wrapText(item.name ?? '', width)) write(nameLine)
+
+    const qtyLabel = unit ? `${formatQty(item.qty)} ${unit}` : formatQty(item.qty)
+    // Tanpa harga satuan, format lama `2x` dipertahankan agar keluaran pemanggil
+    // yang belum meneruskan `unitPrice` tidak berubah bentuk.
+    const left =
+      unitPrice == null
+        ? `  ${qtyLabel}${unit ? '' : 'x'}`
+        : `  ${qtyLabel} x ${formatCurrency(unitPrice)}`
+    leftRightWrapped(left, formatCurrency(lineTotal))
+
+    if (discountPercent > 0) write(`  Diskon ${formatQty(discountPercent)}%`)
   }
 
   line()
@@ -102,10 +216,11 @@ export function buildReceiptBytes(data: ReceiptData, paperSize: '58mm' | '80mm' 
 
   // Pembayaran
   if (data.payment_method_label) leftRight('Metode', data.payment_method_label)
-  if (data.cash_received != null && data.cash_received > 0) {
+  // `!= null` saja: uang pas (`change = 0`) harus tetap tercetak.
+  if (data.cash_received != null) {
     leftRight('Bayar', formatCurrency(data.cash_received))
   }
-  if (data.change != null && data.change > 0) {
+  if (data.change != null) {
     bold(true)
     leftRight('Kembalian', formatCurrency(data.change))
     bold(false)

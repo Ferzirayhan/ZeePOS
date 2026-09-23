@@ -39,9 +39,20 @@ const storeProfileSchema = z.object({
   footer_struk: z.string().min(5, 'Footer struk wajib diisi'),
 })
 
+import {
+  DEFAULT_TEMPO_HUTANG_HARI,
+  MAX_TEMPO_HUTANG_HARI,
+  parseTempoHutangHari,
+} from '../utils/tempoHutang'
+
 const taxSchema = z.object({
   ppn_enabled: z.boolean(),
   ppn_persen: z.coerce.number().min(0, 'PPN tidak boleh negatif').max(100, 'PPN maksimal 100%'),
+  tempo_hutang_hari: z.coerce
+    .number()
+    .int('Tempo hutang harus bilangan bulat hari')
+    .min(0, 'Tempo hutang tidak boleh negatif')
+    .max(MAX_TEMPO_HUTANG_HARI, 'Tempo hutang maksimal 365 hari'),
 })
 
 const paymentSchema = z.object({
@@ -159,6 +170,7 @@ export function SettingsPage() {
     defaultValues: {
       ppn_enabled: false,
       ppn_persen: 0,
+      tempo_hutang_hari: DEFAULT_TEMPO_HUTANG_HARI,
     },
   })
 
@@ -193,6 +205,7 @@ export function SettingsPage() {
     resetTaxForm({
       ppn_enabled: ppnPersen > 0,
       ppn_persen: ppnPersen,
+      tempo_hutang_hari: parseTempoHutangHari(settings.tempo_hutang_hari),
     })
     resetPaymentForm({
       payment_qris_label: settings.payment_qris_label ?? 'QRIS Toko',
@@ -268,10 +281,11 @@ export function SettingsPage() {
     try {
       await saveSettings({
         ppn_persen: values.ppn_enabled ? String(values.ppn_persen) : '0',
+        tempo_hutang_hari: String(values.tempo_hutang_hari),
       })
       pushToast({
         title: 'Pengaturan pajak diperbarui',
-        description: 'Konfigurasi PPN berhasil disimpan.',
+        description: 'Konfigurasi PPN dan tempo hutang berhasil disimpan.',
         variant: 'success',
       })
     } catch (saveError) {
@@ -899,6 +913,7 @@ export function SettingsPage() {
           {activeTab === 'pajak' ? (
             <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
               <form
+                noValidate
                 className="rounded-[20px] bg-white p-6 shadow-[0_6px_24px_rgba(15,23,42,0.04)]"
                 onSubmit={handleSubmitTax(onSubmitTax)}
               >
@@ -906,7 +921,7 @@ export function SettingsPage() {
                   Pajak & Diskon
                 </h2>
                 <p className="mt-2 text-sm text-[#52627d]">
-                  Atur apakah POS memakai PPN default dan berapa persentasenya.
+                  Atur apakah POS memakai PPN default, berapa persentasenya, dan tempo hutang untuk penjualan kredit.
                 </p>
 
                 <div className="mt-6 space-y-5">
@@ -938,6 +953,33 @@ export function SettingsPage() {
                     ) : null}
                   </label>
 
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="tempo_hutang_hari"
+                      className="block text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]"
+                    >
+                      Tempo hutang (hari)
+                    </label>
+                    <input
+                      id="tempo_hutang_hari"
+                      type="number"
+                      min={0}
+                      max={MAX_TEMPO_HUTANG_HARI}
+                      step={1}
+                      aria-describedby="tempo_hutang_hari_help"
+                      className="h-12 w-full rounded-[14px] border-none bg-[#eef0f3] px-4 text-sm outline-none focus:ring-2 focus:ring-[#2563eb]/15"
+                      {...registerTax('tempo_hutang_hari')}
+                    />
+                    <span id="tempo_hutang_hari_help" className="block text-xs text-[#8b9895]">
+                      Jatuh tempo piutang dihitung dari tanggal transaksi (WIB) ditambah tempo ini. Rentang 0–365 hari, default 14.
+                    </span>
+                    {taxErrors.tempo_hutang_hari ? (
+                      <span className="text-sm text-[#ba1a1a]">
+                        {taxErrors.tempo_hutang_hari.message}
+                      </span>
+                    ) : null}
+                  </div>
+
                   <button
                     type="submit"
                     disabled={savingTax}
@@ -954,6 +996,12 @@ export function SettingsPage() {
                   PPN default saat ini:
                   <span className="ml-2 font-bold text-[#2563eb]">
                     {Number(settings.ppn_persen ?? 0)}%
+                  </span>
+                </p>
+                <p className="mt-3 text-sm text-[#52627d]">
+                  Tempo hutang saat ini:
+                  <span className="ml-2 font-bold text-[#2563eb]">
+                    {parseTempoHutangHari(settings.tempo_hutang_hari)} hari
                   </span>
                 </p>
                 <p className="mt-3 text-sm text-[#52627d]">

@@ -16,6 +16,11 @@ export interface HeldCart {
   customer_id: number | null
   customer_nama: string | null
   /**
+   * Catatan pesanan (mis. "Meja 4"). Ikut diparkir bersama pesanan supaya tidak
+   * hilang saat ditahan dan tidak menempel pada pelanggan berikutnya.
+   */
+  catatan?: string | null
+  /**
    * Tanda klaim lintas tab (ISO timestamp). Cart yang sedang diklaim tetap tersimpan
    * di storage (crash-safe), hanya disembunyikan dari daftar sampai di-acknowledge,
    * di-rollback, atau klaimnya kedaluwarsa (CLAIM_TTL_MS).
@@ -221,6 +226,7 @@ export const useHeldCartStore = create<HeldCartStore>()((set, get) => ({
         created_at: new Date().toISOString(),
         customer_id: payload.customer_id ?? null,
         customer_nama: payload.customer_nama ?? null,
+        catatan: payload.catatan ?? null,
         claimed_at: null,
         claim_token: null,
       }
@@ -298,7 +304,12 @@ export const useHeldCartStore = create<HeldCartStore>()((set, get) => ({
       } catch {
         // storage gagal — tetap bersihkan memory tab ini
       }
-      set((state) => ({ cartsByTenant: { ...state.cartsByTenant, [tenantId]: next }, heldCarts: next }))
+      // Daftar yang dipublikasikan harus konsisten dengan setActiveTenant/rollbackResume:
+      // cart yang sedang diklaim tab lain tetap disembunyikan, bukan muncul kembali.
+      set((state) => ({
+        cartsByTenant: { ...state.cartsByTenant, [tenantId]: next },
+        heldCarts: next.filter((cart) => !isClaimActive(cart)),
+      }))
     })
   },
 
@@ -337,7 +348,10 @@ export const useHeldCartStore = create<HeldCartStore>()((set, get) => ({
       const source = persisted.carts ?? get().cartsByTenant[tenantId] ?? []
       const next = source.filter((cart) => cart.id !== id)
       writePersistedCarts(tenantId, next)
-      set((state) => ({ cartsByTenant: { ...state.cartsByTenant, [tenantId]: next }, heldCarts: next }))
+      set((state) => ({
+        cartsByTenant: { ...state.cartsByTenant, [tenantId]: next },
+        heldCarts: next.filter((cart) => !isClaimActive(cart)),
+      }))
     })
   },
 

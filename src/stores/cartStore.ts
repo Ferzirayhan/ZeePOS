@@ -138,7 +138,10 @@ export const useCartStore = create<CartStore>((set, get) => ({
     const existingLine = currentState.items.find((item) => lineMatches(item, productId, unit?.id ?? null))
 
     // Line baru: butuh satu satuan jual bebas; line lama: tambah satu lagi.
-    const claimed = baseDemandOf(currentState.items, productId)
+    // `claimed` HARUS mengecualikan line target, karena `need` sudah menghitung
+    // qty line tersebut secara penuh (qty + 1). Tanpa pengecualian ini kebutuhan
+    // line lama dihitung dua kali dan kasir diblokir di ~setengah stok asli.
+    const claimed = baseDemandOf(currentState.items, productId, existingLine)
     const need = (existingLine ? existingLine.qty + 1 : 1) * rasio
     if (claimed + need > stokDasar) {
       throw new Error(existingLine
@@ -181,7 +184,13 @@ export const useCartStore = create<CartStore>((set, get) => ({
     set(withRecalculatedState({ items: nextItems }, currentState))
   },
 
-  clearCart: () => set({ ...EMPTY_CART }),
+  // Mengosongkan keranjang TIDAK mereset ppn_persen: tarif PPN adalah konfigurasi
+  // toko (server-authoritative) yang dicerminkan ke store, bukan isi keranjang.
+  // Sebelumnya tarif ikut ter-reset ke 0, sehingga setelah "Tahan Pesanan" atau
+  // "Kosongkan Keranjang" kasir dikutip total tanpa PPN sementara server tetap
+  // menagih PPN. Reset tarif secara eksplisit lewat setPpnPersen(0) saat logout
+  // atau ganti tenant.
+  clearCart: () => set({ ...EMPTY_CART, ppn_persen: get().ppn_persen }),
 
   setDiskon: (persen) => {
     const currentState = get()

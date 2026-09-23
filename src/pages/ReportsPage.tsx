@@ -1,6 +1,6 @@
 import { format, subDays } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import {
   getProfitSummary,
@@ -9,8 +9,10 @@ import {
   getSalesByDateRange,
   getTransactionHistoryPage,
 } from '../api/reports'
-import { getTransactionById } from '../api/transactions'
+import { getActiveCashShift } from '../api/cashShift'
+import { getTransactionById, refundTransaction } from '../api/transactions'
 import { ReceiptPrint } from '../components/pos/ReceiptPrint'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { CurrencyDisplay } from '../components/ui/CurrencyDisplay'
 import { Modal } from '../components/ui/Modal'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -18,7 +20,11 @@ import { usePrint } from '../hooks/usePrint'
 import { useAuthStore } from '../stores/authStore'
 import { useToastStore } from '../stores/toastStore'
 import { useUIStore } from '../stores/uiStore'
-import type { Transaction, TransactionItem, TransactionWithKasir } from '../types/database'
+import type {
+  Transaction,
+  TransactionItem,
+  TransactionWithKasirAdmin,
+} from '../types/database'
 import { cn } from '../utils/cn'
 import { formatRupiah } from '../utils/currency'
 import { exportToExcel } from '../utils/export'
@@ -32,9 +38,13 @@ function formatDateInput(date: Date) {
   return format(date, 'yyyy-MM-dd')
 }
 
+const REFUND_SHIFT_WARNING =
+  'Refund tunai mengeluarkan uang dari laci, jadi harus tercatat dalam shift kasir. Buka shift di halaman Kasir terlebih dahulu.'
+
 export function ReportsPage() {
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed)
   const user = useAuthStore((state) => state.user)
+  const isAdmin = useAuthStore((state) => state.isAdmin)
   const pushToast = useToastStore((state) => state.pushToast)
   const printRef = useRef<HTMLDivElement>(null)
   const [quickRange, setQuickRange] = useState<QuickRange>('7days')
@@ -56,16 +66,68 @@ export function ReportsPage() {
     totalHpp: 0,
     totalLabaKotor: 0,
     marginPersen: 0,
+    // Akrual vs kas (task 12.5, design E.3). `create_transaction_atomic`
+    // menandai penjualan hutang `payment_status = 'dibayar'` + `paid_at = NOW()`
+    // walaupun piutangnya masih `belum_lunas`, jadi satu angka "Total Penjualan"
+    // membuat hutang yang belum tertagih terbaca sebagai uang di laci.
+    // `kasDiterima` BOLEH negatif bila refund pada rentang melebihi penerimaan.
+    omzetAkrual: 0,
+    kasDiterima: 0,
+    piutangBaru: 0,
   })
   const [salesChart, setSalesChart] = useState<Array<{ tanggal: string; totalPenjualan: number; jumlahTransaksi: number }>>([])
   const [profitChart, setProfitChart] = useState<
     Array<{ tanggal: string; totalOmzet: number; totalHpp: number; totalLaba: number; marginPersen: number; jumlahTransaksi: number }>
   >([])
   const [categoryChart, setCategoryChart] = useState<Array<{ category: string; total: number }>>([])
-  const [transactions, setTransactions] = useState<TransactionWithKasir[]>([])
+  const [transactions, setTransactions] = useState<TransactionWithKasirAdmin[]>([])
   const [totalCount, setTotalCount] = useState(0)
-  const [selectedTransaction, setSelectedTransaction] = useState<TransactionWithKasir | null>(null)
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<TransactionWithKasirAdmin | null>(null)
   const [selectedItems, setSelectedItems] = useState<TransactionItem[]>([])
+
+  // --- Refund (task 9.2 / 9.3, design B.2 & B.3) ---------------------------
+  // RPC refund sudah ada sejak migrasi 060 tetapi tidak punya pemanggil mana
+  // pun sebelum ini, sehingga pengembalian barang tidak dapat dicatat dari
+  // aplikasi. Jalur RPC-nya ada di `refundTransaction` (src/api/transactions).
+  const [refundFormOpen, setRefundFormOpen] = useState(false)
+  const [refundReason, setRefundReason] = useState('')
+  const [refundConfirmOpen, setRefundConfirmOpen] = useState(false)
+  const [refundSubmitting, setRefundSubmitting] = useState(false)
+  const [refundIdempotencyKey, setRefundIdempotencyKey] = useState('')
+
+  // Server menolak refund **tunai** tanpa shift kasir aktif (migrasi 067 butir
+  // 6.3). Statusnya dilacak di muka supaya admin tidak menerima pesan Postgres
+  // mentah setelah menulis alasan. Refund non-tunai tidak butuh shift.
+  const [hasOpenShift, setHasOpenShift] = useState<boolean | null>(null)
+
+  // Kunci idempotensi per transaksi + alasan yang terikat padanya. Fingerprint
+  // server = sha256({transaction_id, alasan}), jadi memakai ulang kunci dengan
+  // alasan berbeda ditolak ("Kunci idempotensi sudah digunakan untuk transaksi
+  // refund berbeda"). Kunci dipertahankan lintas close/reopen selama refund
+  // belum sukses agar percobaan ulang identik memulihkan respons yang hilang.
+  const refundKeyMap = useRef<Record<number, string>>({})
+  const refundBoundReason = useRef<Record<number, string>>({})
+
+  const loadActiveShift = useCallback(async () => {
+    try {
+      const shift = await getActiveCashShift()
+      setHasOpenShift(Boolean(shift))
+    } catch {
+      // Status shift tidak diketahui: jangan blokir UI, biarkan server memutuskan.
+      setHasOpenShift(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadActiveShift()
+  }, [loadActiveShift])
+
+  const selectedIsCash = selectedTransaction?.metode_bayar === 'tunai'
+  const refundEligible =
+    selectedTransaction?.status === 'selesai' &&
+    selectedTransaction?.payment_status === 'dibayar'
+  const refundBlockedByShift = selectedIsCash && hasOpenShift === false
 
   const handlePrint = usePrint({
     contentRef: printRef,
@@ -115,6 +177,18 @@ export function ReportsPage() {
   const totalPages = Math.max(1, Math.ceil(totalCount / 10))
 
   const loadReports = useCallback(async () => {
+    // Riwayat transaksi dibaca dari `transactions_with_kasir_admin`, yang
+    // digerbangi `is_admin()` DI DALAM definisi view: sesi non-admin menerima
+    // NOL BARIS, bukan error. Rute `/laporan` sudah `AdminRoute`, tetapi bila
+    // peran berubah di tengah sesi kita menolak eksplisit daripada merender
+    // riwayat kosong yang menyesatkan.
+    if (!isAdmin) {
+      setTransactions([])
+      setTotalCount(0)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -122,7 +196,11 @@ export function ReportsPage() {
         getReportSummary(dateFrom, dateTo),
         getSalesByDateRange(dateFrom, dateTo),
         getProfitSummary(dateFrom, dateTo),
-        getSalesByCategory(`${dateFrom}T00:00:00`, `${dateTo}T23:59:59`),
+        // Kirim tanggal polos (yyyy-MM-dd) seperti pemanggil lain: getISOStartOfDay /
+        // getISOEndOfDay yang menempelkan offset WIB (+07:00). Menyusun sendiri
+        // "T00:00:00" membuat helper-nya short-circuit sehingga Postgres membaca
+        // literal naive sebagai UTC dan jendela laporan bergeser 7 jam.
+        getSalesByCategory(dateFrom, dateTo),
         getTransactionHistoryPage({
           page,
           pageSize: 10,
@@ -148,6 +226,9 @@ export function ReportsPage() {
         totalHpp: summaryResult.totalHpp,
         totalLabaKotor: summaryResult.totalLabaKotor,
         marginPersen: summaryResult.marginPersen,
+        omzetAkrual: summaryResult.omzetAkrual,
+        kasDiterima: summaryResult.kasDiterima,
+        piutangBaru: summaryResult.piutangBaru,
       })
       setSalesChart(salesResult)
       setProfitChart(profitResult)
@@ -163,7 +244,7 @@ export function ReportsPage() {
     } finally {
       setLoading(false)
     }
-  }, [dateFrom, dateTo, debouncedSearch, metodeBayar, page, paymentStatus, pushToast])
+  }, [dateFrom, dateTo, debouncedSearch, isAdmin, metodeBayar, page, paymentStatus, pushToast])
 
   useEffect(() => {
     void loadReports()
@@ -247,8 +328,14 @@ export function ReportsPage() {
     }
   }
 
-  const openTransactionDetail = async (transaction: TransactionWithKasir) => {
+  const openTransactionDetail = async (transaction: TransactionWithKasirAdmin) => {
     setSelectedTransaction(transaction)
+    // Form refund selalu dimulai tertutup: aksi finansial tidak boleh terbuka
+    // hanya karena admin membuka detail.
+    setRefundFormOpen(false)
+    setRefundConfirmOpen(false)
+    setRefundReason('')
+    setRefundIdempotencyKey('')
     setDetailLoading(true)
 
     try {
@@ -269,6 +356,167 @@ export function ReportsPage() {
       setSelectedItems([])
     } finally {
       setDetailLoading(false)
+    }
+  }
+
+  const closeTransactionDetail = () => {
+    setSelectedTransaction(null)
+    setRefundFormOpen(false)
+    setRefundConfirmOpen(false)
+    setRefundReason('')
+    setRefundIdempotencyKey('')
+    // Kunci dan alasan terikat DIPERTAHANKAN: selama refund belum sukses,
+    // percobaan ulang harus memakai kunci yang sama agar server mengembalikan
+    // hasil yang sama alih-alih memproses refund kedua.
+  }
+
+  const handleOpenRefundForm = () => {
+    const transactionId = selectedTransaction?.id
+
+    if (!transactionId || !refundEligible) {
+      return
+    }
+
+    // Diperiksa sebelum form dibuka: server menolak refund tunai tanpa shift
+    // aktif, dan admin tidak perlu mengetik alasan untuk mengetahuinya.
+    if (refundBlockedByShift) {
+      pushToast({
+        title: 'Shift Kasir Belum Dibuka',
+        description: REFUND_SHIFT_WARNING,
+        variant: 'warning',
+      })
+      return
+    }
+
+    const key = refundKeyMap.current[transactionId] ?? crypto.randomUUID()
+    refundKeyMap.current[transactionId] = key
+    setRefundIdempotencyKey(key)
+
+    // Recovery respons hilang: bila percobaan sebelumnya sudah mengikat alasan
+    // ke kunci ini, textarea dipulihkan persis seperti percobaan itu.
+    setRefundReason(refundBoundReason.current[transactionId] ?? '')
+    setRefundFormOpen(true)
+  }
+
+  const handleCancelRefund = () => {
+    setRefundFormOpen(false)
+    setRefundConfirmOpen(false)
+    setRefundReason('')
+  }
+
+  // Rotasi kunci saat alasan diubah setelah percobaan gagal: kunci lama terikat
+  // fingerprint sha256({transaction_id, alasan}) di server, jadi alasan baru
+  // WAJIB memakai kunci baru atau server menolak dengan "Kunci idempotensi
+  // sudah digunakan untuk transaksi refund berbeda".
+  useEffect(() => {
+    if (!refundFormOpen) return
+    const transactionId = selectedTransaction?.id
+    if (!transactionId) return
+
+    const bound = refundBoundReason.current[transactionId]
+    if (!bound) return
+    if (refundReason.trim() === bound) return
+
+    const rotatedKey = crypto.randomUUID()
+    refundKeyMap.current[transactionId] = rotatedKey
+    delete refundBoundReason.current[transactionId]
+    setRefundIdempotencyKey(rotatedKey)
+  }, [refundFormOpen, refundReason, selectedTransaction])
+
+  const handleRequestRefundConfirm = () => {
+    // Alasan wajib ditolak DI SINI, sebelum satu pun panggilan RPC: kunci
+    // idempotensi tidak boleh terbakar oleh kesalahan yang sudah jelas.
+    if (!refundReason.trim()) {
+      pushToast({
+        title: 'Alasan Refund Wajib Diisi',
+        description: 'Tulis alasan pengembalian barang agar refund dapat diaudit.',
+        variant: 'warning',
+      })
+      return
+    }
+
+    setRefundConfirmOpen(true)
+  }
+
+  const handleSubmitRefund = async () => {
+    const transactionId = selectedTransaction?.id
+    const alasan = refundReason.trim()
+
+    if (!transactionId || !alasan) {
+      return
+    }
+
+    // Diperiksa ulang saat submit: shift bisa ditutup di tab atau perangkat lain
+    // selagi form terbuka.
+    if (refundBlockedByShift) {
+      setRefundConfirmOpen(false)
+      pushToast({
+        title: 'Shift Kasir Belum Dibuka',
+        description: REFUND_SHIFT_WARNING,
+        variant: 'warning',
+      })
+      return
+    }
+
+    const keyToUse =
+      refundKeyMap.current[transactionId] || refundIdempotencyKey || crypto.randomUUID()
+    refundKeyMap.current[transactionId] = keyToUse
+
+    // Ikat alasan ke kunci SEBELUM request: bila respons hilang dan admin
+    // membuka form lagi, ikatan inilah yang memulihkan alasan dan mencegah
+    // rotasi kunci yang tidak perlu.
+    refundBoundReason.current = {
+      ...refundBoundReason.current,
+      [transactionId]: alasan,
+    }
+
+    setRefundSubmitting(true)
+
+    try {
+      const result = await refundTransaction({
+        transactionId,
+        alasan,
+        idempotencyKey: keyToUse,
+      })
+
+      // Sukses: kunci dan ikatan dibuang supaya refund berikutnya atas transaksi
+      // ini (bila pernah dibuka lagi) memulai dari kunci baru.
+      delete refundKeyMap.current[transactionId]
+      const remainingBound = { ...refundBoundReason.current }
+      delete remainingBound[transactionId]
+      refundBoundReason.current = remainingBound
+
+      setRefundConfirmOpen(false)
+      setRefundFormOpen(false)
+      setRefundReason('')
+      setRefundIdempotencyKey('')
+      setSelectedTransaction(null)
+
+      pushToast({
+        title: result.idempotent ? 'Refund Sudah Tercatat' : 'Refund Berhasil',
+        description: `Nota ${result.nomor_nota} senilai ${formatRupiah(
+          result.total_refund,
+        )} dikembalikan. Stok dipulihkan dan transaksi ditandai ${result.status.toUpperCase()}.`,
+        variant: 'success',
+      })
+
+      void loadReports()
+      void loadActiveShift()
+    } catch (error) {
+      // Gagal: kunci DAN alasan terikat dipertahankan, sehingga percobaan ulang
+      // dengan alasan sama memakai kunci sama dan server mengembalikan hasil
+      // yang sama alih-alih merefund dua kali.
+      setRefundConfirmOpen(false)
+      pushToast({
+        title: 'Refund Gagal',
+        // Pesan server diteruskan apa adanya: itulah sinyal yang memberi tahu
+        // admin apa yang sebenarnya terjadi (shift belum dibuka, bukan admin,
+        // transaksi sudah batal, kunci dipakai untuk alasan berbeda).
+        description: error instanceof Error ? error.message : 'Refund belum berhasil diproses.',
+        variant: 'error',
+      })
+    } finally {
+      setRefundSubmitting(false)
     }
   }
 
@@ -406,15 +654,35 @@ export function ReportsPage() {
           </section>
 
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {[
+            {([
               { label: 'Total Penjualan', value: <CurrencyDisplay value={summary.totalPenjualan} /> },
+              {
+                label: 'Omzet (akrual)',
+                value: <CurrencyDisplay value={summary.omzetAkrual} />,
+                caption: (
+                  <>
+                    Termasuk penjualan hutang{' '}
+                    <CurrencyDisplay value={summary.piutangBaru} /> yang belum tertagih.
+                  </>
+                ),
+              },
+              {
+                label: 'Kas diterima',
+                value: (
+                  <CurrencyDisplay
+                    value={summary.kasDiterima}
+                    className={summary.kasDiterima < 0 ? 'text-[#d63f2f]' : undefined}
+                  />
+                ),
+                caption: 'Tunai, QRIS, transfer, dan cicilan dikurangi refund — penjualan hutang belum termasuk kas.',
+              },
               { label: 'Jumlah Transaksi', value: summary.jumlahTransaksi },
               { label: 'Rata-rata Transaksi', value: <CurrencyDisplay value={summary.rataRataTransaksi} /> },
               { label: 'Pending Payment', value: summary.jumlahPending },
               { label: 'Total HPP', value: <CurrencyDisplay value={summary.totalHpp} /> },
               { label: 'Laba Kotor', value: <CurrencyDisplay value={summary.totalLabaKotor} /> },
               { label: 'Margin', value: `${summary.marginPersen.toFixed(1)}%` },
-            ].map((card) => (
+            ] as Array<{ label: string; value: ReactNode; caption?: ReactNode }>).map((card) => (
               <div key={card.label} className="rounded-[18px] bg-white p-5 shadow-[0_6px_24px_rgba(15,23,42,0.04)]">
                 <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]">
                   {card.label}
@@ -422,6 +690,11 @@ export function ReportsPage() {
                 <div className="mt-3 text-[24px] font-extrabold text-[#1b1e20]">
                   {loading ? <Skeleton className="h-8 w-32 rounded-xl" /> : card.value}
                 </div>
+                {card.caption && !loading ? (
+                  <p className="mt-2 text-[11px] font-medium leading-4 text-[#8b9895]">
+                    {card.caption}
+                  </p>
+                ) : null}
               </div>
             ))}
           </section>
@@ -651,6 +924,28 @@ export function ReportsPage() {
               </div>
             ) : null}
 
+            {!loading && transactions.length === 0 ? (
+              <div className="px-5 py-14 text-center">
+                {isAdmin ? (
+                  <>
+                    <p className="text-lg font-extrabold text-[#1b1e20]">Belum ada transaksi</p>
+                    <p className="mt-2 text-sm text-[#8b9895]">
+                      Ubah rentang tanggal atau filter untuk melihat riwayat lain.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-extrabold text-[#1b1e20]">Akses admin diperlukan</p>
+                    <p className="mt-2 text-sm text-[#8b9895]">
+                      Riwayat transaksi memuat laba kotor, jadi hanya akun admin yang bisa
+                      membacanya. Daftar ini kosong karena hak akses, bukan karena belum ada
+                      transaksi.
+                    </p>
+                  </>
+                )}
+              </div>
+            ) : null}
+
             <div className="flex flex-col gap-3 border-t border-[#eef1f1] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-[#8b9895]">
                 Menampilkan {transactions.length === 0 ? 0 : (page - 1) * 10 + 1}-{Math.min(page * 10, totalCount)} dari {totalCount} transaksi
@@ -681,7 +976,7 @@ export function ReportsPage() {
 
       <Modal
         open={Boolean(selectedTransaction)}
-        onClose={() => setSelectedTransaction(null)}
+        onClose={closeTransactionDetail}
         size="sm"
         title={`Detail Transaksi ${selectedTransaction?.nomor_nota ?? ''}`}
       >
@@ -744,8 +1039,123 @@ export function ReportsPage() {
               Cetak Ulang Struk
             </button>
           ) : null}
+
+          {/* Refund (task 9.2): hanya di dalam modal detail, bukan di baris
+              tabel, supaya aksi finansial tidak mudah tersenggol. */}
+          <div className="space-y-3 border-t border-[#eef1f1] pt-4">
+            {refundBlockedByShift && refundEligible ? (
+              <div
+                role="status"
+                className="flex items-start gap-3 rounded-[16px] border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-xl">
+                  schedule
+                </span>
+                <p>
+                  <span className="font-bold">Shift kasir belum dibuka.</span> {REFUND_SHIFT_WARNING}
+                </p>
+              </div>
+            ) : null}
+
+            {!refundFormOpen ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleOpenRefundForm}
+                  disabled={!refundEligible || refundBlockedByShift}
+                  title={
+                    !refundEligible
+                      ? 'Refund hanya untuk transaksi selesai yang sudah dibayar'
+                      : refundBlockedByShift
+                        ? 'Buka shift kasir terlebih dahulu'
+                        : undefined
+                  }
+                  className="w-full rounded-[14px] border border-[#ba1a1a] px-4 py-3 font-bold text-[#ba1a1a] disabled:cursor-not-allowed disabled:border-[#e2e8e8] disabled:text-[#a8b3b1]"
+                >
+                  Refund
+                </button>
+                {!refundEligible ? (
+                  <p className="text-xs text-[#8b9895]">
+                    Refund hanya tersedia untuk transaksi berstatus selesai dengan pembayaran
+                    lunas.
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <div className="space-y-3">
+                <label
+                  htmlFor="refund-reason"
+                  className="block text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#8b9895]"
+                >
+                  Alasan Refund (wajib)
+                </label>
+                <textarea
+                  id="refund-reason"
+                  value={refundReason}
+                  onChange={(event) => setRefundReason(event.target.value)}
+                  rows={3}
+                  required
+                  placeholder="Contoh: barang rusak saat diterima pelanggan"
+                  className="w-full rounded-[16px] border border-transparent bg-[#f1f3f5] px-4 py-3 text-sm font-medium text-[#1b1e20] outline-none focus:border-[#bfdbfe] focus:ring-2 focus:ring-[#2563eb]/10"
+                />
+                <p className="text-xs text-[#8b9895]">
+                  Refund memulihkan stok, membalik piutang bila transaksi hutang, dan menandai
+                  transaksi sebagai batal. Tindakan ini tidak dapat dibatalkan.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCancelRefund}
+                    className="flex-1 rounded-[14px] bg-[#f1f3f5] px-4 py-3 font-bold text-[#52627d]"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRequestRefundConfirm}
+                    disabled={refundSubmitting}
+                    className="flex-1 rounded-[14px] bg-[#ba1a1a] px-4 py-3 font-bold text-white disabled:opacity-60"
+                  >
+                    Lanjutkan Refund
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={refundConfirmOpen}
+        title="Konfirmasi Refund"
+        variant="danger"
+        confirmLabel="Refund Sekarang"
+        loading={refundSubmitting}
+        onCancel={() => setRefundConfirmOpen(false)}
+        onConfirm={() => void handleSubmitRefund()}
+        description={
+          <div className="space-y-2">
+            <p>
+              Refund nota{' '}
+              <span className="font-bold text-[#1b1e20]">
+                {selectedTransaction?.nomor_nota ?? '-'}
+              </span>{' '}
+              senilai{' '}
+              <span className="font-bold text-[#ba1a1a]">
+                {formatRupiah(Number(selectedTransaction?.total ?? 0))}
+              </span>
+              ?
+            </p>
+            <p>
+              Alasan: <span className="font-semibold">{refundReason.trim()}</span>
+            </p>
+            <p>
+              Stok dipulihkan, piutang dibalik bila transaksi hutang, dan transaksi ditandai
+              batal. {selectedIsCash ? 'Uang tunai dikeluarkan dari shift kasir aktif.' : null}
+            </p>
+          </div>
+        }
+      />
 
       <div className="hidden">
         {printableTransaction ? (

@@ -111,6 +111,10 @@ export function PaymentModal({
   const qrisImageError = failedQrisUrl !== null && failedQrisUrl === settings.payment_qris_image_url
 
   const isCashInsufficient = metodeBayar === 'tunai' && uangDiterima < total
+  // Bon/Tempo tanpa pelanggan pasti ditolak server ("Metode bayar hutang wajib
+  // memilih pelanggan"). Tab-nya juga tidak dirender, jadi tombol bayar harus
+  // dimatikan alih-alih membiarkan kasir menabrak error tanpa isi form.
+  const isCreditWithoutCustomer = metodeBayar === 'hutang' && !customerName
   const isTransferMissingConfig =
     metodeBayar === 'transfer' &&
     (!settings.payment_transfer_bank?.trim() ||
@@ -119,7 +123,11 @@ export function PaymentModal({
   const isQrisMissingConfig =
     metodeBayar === 'qris' && (!settings.payment_qris_image_url?.trim() || qrisImageError)
   const isPaymentDisabled =
-    isProcessing || isCashInsufficient || isTransferMissingConfig || isQrisMissingConfig
+    isProcessing ||
+    isCashInsufficient ||
+    isTransferMissingConfig ||
+    isQrisMissingConfig ||
+    isCreditWithoutCustomer
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === ' ' && metodeBayar === 'tunai') {

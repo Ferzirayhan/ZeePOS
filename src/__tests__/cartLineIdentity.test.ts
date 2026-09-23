@@ -127,6 +127,33 @@ describe('cart line identity (product + unit)', () => {
     expect(() => useCartStore.getState().addItem(product, [], dus)).not.toThrow() // base 12, total 13 <= 50
   })
 
+  it('addItem berulang boleh mencapai stok penuh, sama seperti updateQty', () => {
+    // Regresi: addItem menghitung kebutuhan line yang sudah ada dua kali
+    // (baseDemandOf sudah memuat qty line itu, lalu need menambahkannya lagi),
+    // sehingga kasir diblokir di ~setengah stok asli padahal tombol "+" di
+    // keranjang (updateQty) mengizinkan qty yang sama.
+    const product = mockProduct({ stok: 10 })
+
+    for (let index = 0; index < 10; index += 1) {
+      expect(() => useCartStore.getState().addItem(product, [], null)).not.toThrow()
+    }
+
+    expect(useCartStore.getState().items[0].qty).toBe(10)
+    expect(() => useCartStore.getState().addItem(product, [], null)).toThrow(/melebihi stok/i)
+  })
+
+  it('addItem berulang satuan dus boleh mencapai stok dasar penuh', () => {
+    const product = mockProduct({ stok: 120 })
+    const dus = mockUnit() // rasio 12 -> 10 dus = 120 base
+
+    for (let index = 0; index < 10; index += 1) {
+      expect(() => useCartStore.getState().addItem(product, [], dus)).not.toThrow()
+    }
+
+    expect(useCartStore.getState().items[0].qty).toBe(10)
+    expect(() => useCartStore.getState().addItem(product, [], dus)).toThrow(/melebihi stok/i)
+  })
+
   it('updateQty memvalidasi total kebutuhan stok dasar semua satuan produk', () => {
     const product = mockProduct({ stok: 13 })
     const dus = mockUnit() // rasio 12

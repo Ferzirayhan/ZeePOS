@@ -5,12 +5,41 @@ import {
   getReceivables,
   payReceivable,
 } from '../api/customers'
+import { getActiveCashShift } from '../api/cashShift'
 import type { Customer, Receivable } from '../types/database'
 import { formatRupiah } from '../utils/currency'
 import { Modal } from '../components/ui/Modal'
 import { useToastStore } from '../stores/toastStore'
 import { useUIStore } from '../stores/uiStore'
 import { cn } from '../utils/cn'
+import { getWIBToday } from '../utils/date'
+
+/**
+ * Penanda "terlewat" untuk satu baris piutang (2.11, design E.1).
+ *
+ * `receivables.jatuh_tempo` bertipe DATE yang dihitung server sebagai tanggal
+ * kalender WIB transaksi + tenor toko, jadi pembandingnya harus "hari ini
+ * menurut WIB" — bukan tanggal lokal perangkat. Tablet di luar WIB akan
+ * menandai piutang terlewat sehari lebih cepat atau lebih lambat bila
+ * dibandingkan dengan `new Date()` lokal.
+ *
+ * `jatuh_tempo` NULL BUKAN keadaan terlewat. Gate 3.2 diputuskan "biarkan
+ * NULL": piutang yang dibuat sebelum migrasi 067 tidak dibackfill, sehingga
+ * badge kosong adalah perilaku yang diharapkan. Memperlakukan NULL sebagai
+ * terlewat akan menandai seluruh piutang historis sebagai telat.
+ */
+function isReceivableOverdue(
+  receivable: Pick<Receivable, 'jatuh_tempo' | 'sisa_hutang'>,
+  todayWIB: string,
+): boolean {
+  if (!receivable.jatuh_tempo) return false
+  if (Number(receivable.sisa_hutang) <= 0) return false
+
+  // DATE biasanya datang sebagai 'yyyy-MM-dd'; potong bila PostgREST mengirim
+  // timestamp penuh. Kunci ISO nol-padded aman dibandingkan secara leksikografis.
+  const dueKey = receivable.jatuh_tempo.slice(0, 10)
+  return dueKey < todayWIB
+}
 
 export function CustomersPage() {
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed)
@@ -37,6 +66,21 @@ export function CustomersPage() {
   const [catatanBayar, setCatatanBayar] = useState('')
   const [submittingPayment, setSubmittingPayment] = useState(false)
 
+  // pay_receivable_atomic menolak pembayaran tanpa shift kasir terbuka (migrasi 064).
+  // Statusnya dilacak di sini supaya kasir diberi tahu di muka — bukan lewat pesan
+  // error Postgres mentah setelah mengisi seluruh form.
+  const [hasOpenShift, setHasOpenShift] = useState<boolean | null>(null)
+
+  const loadActiveShift = useCallback(async () => {
+    try {
+      const shift = await getActiveCashShift()
+      setHasOpenShift(Boolean(shift))
+    } catch {
+      // Status shift tidak diketahui: jangan blokir UI, biarkan server yang memutuskan.
+      setHasOpenShift(null)
+    }
+  }, [])
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
@@ -60,6 +104,10 @@ export function CustomersPage() {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    void loadActiveShift()
+  }, [loadActiveShift])
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -98,6 +146,16 @@ export function CustomersPage() {
   const receivableBoundPayload = useRef<Record<number, { jumlah: number; metodeBayar: string; catatan: string }>>({})
 
   const handleOpenPayModal = (r: Receivable) => {
+    if (hasOpenShift === false) {
+      pushToast({
+        title: 'Shift Kasir Belum Dibuka',
+        description:
+          'Penerimaan cicilan piutang harus tercatat dalam shift kasir. Buka shift di halaman Kasir terlebih dahulu.',
+        variant: 'warning',
+      })
+      return
+    }
+
     setSelectedReceivable(r)
     const bound = receivableBoundPayload.current[r.id]
     if (bound) {
@@ -150,6 +208,18 @@ export function CustomersPage() {
     const jumlah = Number(nominalBayar.replace(/\D/g, ''))
     if (jumlah <= 0) return
 
+    // Diperiksa ulang saat submit: shift bisa ditutup di tab/perangkat lain
+    // selagi modal terbuka.
+    if (hasOpenShift === false) {
+      pushToast({
+        title: 'Shift Kasir Belum Dibuka',
+        description:
+          'Penerimaan cicilan piutang harus tercatat dalam shift kasir. Buka shift di halaman Kasir terlebih dahulu.',
+        variant: 'warning',
+      })
+      return
+    }
+
     const keyToUse = paymentIdempotencyKey || crypto.randomUUID()
     if (!paymentIdempotencyKey) {
       setPaymentIdempotencyKey(keyToUse)
@@ -189,6 +259,9 @@ export function CustomersPage() {
         description: err instanceof Error ? err.message : 'Terjadi kesalahan sistem',
         variant: 'error',
       })
+      // Kegagalan bisa disebabkan shift yang baru ditutup di tempat lain:
+      // segarkan statusnya agar peringatan di UI ikut menyesuaikan.
+      void loadActiveShift()
     } finally {
       setSubmittingPayment(false)
     }
@@ -198,6 +271,10 @@ export function CustomersPage() {
   const totalPiutangBelumLunas = receivables
     .filter((r) => r.status !== 'lunas')
     .reduce((sum, r) => sum + Number(r.sisa_hutang || 0), 0)
+
+  // Satu kali per render, dipakai seluruh baris piutang agar semua baris memakai
+  // batas hari yang sama.
+  const todayWIB = getWIBToday()
 
   return (
     <main
@@ -375,6 +452,23 @@ export function CustomersPage() {
         </div>
       )}
 
+      {/* Peringatan shift: server menolak pembayaran cicilan tanpa shift terbuka */}
+      {activeTab === 'receivables' && hasOpenShift === false && (
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-3xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-xl">
+            schedule
+          </span>
+          <p>
+            <span className="font-bold">Shift kasir belum dibuka.</span> Penerimaan cicilan piutang
+            wajib tercatat dalam shift agar masuk rekonsiliasi kas. Buka shift di halaman Kasir
+            sebelum menerima pembayaran.
+          </p>
+        </div>
+      )}
+
       {/* Konten Tab Buku Piutang */}
       {activeTab === 'receivables' && (
         <div className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm">
@@ -399,57 +493,77 @@ export function CustomersPage() {
                     </td>
                   </tr>
                 ) : (
-                  receivables.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50/80 transition">
-                      <td className="px-6 py-4 font-mono font-bold text-[#2563eb]">
-                        {r.nomor_nota}
-                        {r.jatuh_tempo && (
-                          <p className="text-[10px] font-sans text-slate-400">
-                            Jatuh tempo: {new Date(r.jatuh_tempo).toLocaleDateString('id-ID')}
-                          </p>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 font-bold text-slate-800">
-                        {r.customer?.nama || `Pelanggan #${r.customer_id}`}
-                      </td>
-                      <td className="px-6 py-4 text-right font-medium text-slate-600">
-                        {formatRupiah(Number(r.total_tagihan))}
-                      </td>
-                      <td className="px-6 py-4 text-right font-medium text-[#16a34a]">
-                        {formatRupiah(Number(r.jumlah_dibayar))}
-                      </td>
-                      <td className="px-6 py-4 text-right font-display font-black text-amber-600">
-                        {formatRupiah(Number(r.sisa_hutang))}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span
-                          className={cn(
-                            'inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase',
-                            r.status === 'lunas'
-                              ? 'bg-emerald-100 text-[#16a34a]'
-                              : r.status === 'sebagian'
-                                ? 'bg-blue-100 text-[#2563eb]'
-                                : 'bg-amber-100 text-amber-800',
+                  receivables.map((r) => {
+                    const overdue = isReceivableOverdue(r, todayWIB)
+
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50/80 transition">
+                        <td className="px-6 py-4 font-mono font-bold text-[#2563eb]">
+                          {r.nomor_nota}
+                          {r.jatuh_tempo && (
+                            <p
+                              className={cn(
+                                'text-[10px] font-sans',
+                                overdue ? 'font-bold text-[#dc2626]' : 'text-slate-400',
+                              )}
+                            >
+                              Jatuh tempo: {new Date(r.jatuh_tempo).toLocaleDateString('id-ID')}
+                              {overdue && (
+                                <span className="ml-1.5 rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#dc2626]">
+                                  Terlewat
+                                </span>
+                              )}
+                            </p>
                           )}
-                        >
-                          {r.status === 'belum_lunas' ? 'Belum Lunas' : r.status.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        {r.status !== 'lunas' ? (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenPayModal(r)}
-                            className="px-3.5 py-1.5 rounded-xl bg-[#2563eb] text-white text-xs font-bold hover:bg-[#1d4ed8] transition shadow-sm"
+                        </td>
+                        <td className="px-6 py-4 font-bold text-slate-800">
+                          {r.customer?.nama || `Pelanggan #${r.customer_id}`}
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium text-slate-600">
+                          {formatRupiah(Number(r.total_tagihan))}
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium text-[#16a34a]">
+                          {formatRupiah(Number(r.jumlah_dibayar))}
+                        </td>
+                        <td className="px-6 py-4 text-right font-display font-black text-amber-600">
+                          {formatRupiah(Number(r.sisa_hutang))}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span
+                            className={cn(
+                              'inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase',
+                              r.status === 'lunas'
+                                ? 'bg-emerald-100 text-[#16a34a]'
+                                : r.status === 'sebagian'
+                                  ? 'bg-blue-100 text-[#2563eb]'
+                                  : 'bg-amber-100 text-amber-800',
+                            )}
                           >
-                            Bayar Cicilan
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-400">Selesai</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                            {r.status === 'belum_lunas' ? 'Belum Lunas' : r.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          {r.status !== 'lunas' ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPayModal(r)}
+                              disabled={hasOpenShift === false}
+                              title={
+                                hasOpenShift === false
+                                  ? 'Buka shift kasir terlebih dahulu'
+                                  : undefined
+                              }
+                              className="px-3.5 py-1.5 rounded-xl bg-[#2563eb] text-white text-xs font-bold hover:bg-[#1d4ed8] transition shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-[#2563eb]"
+                            >
+                              Bayar Cicilan
+                            </button>
+                          ) : (
+                            <span className="text-xs text-slate-400">Selesai</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>

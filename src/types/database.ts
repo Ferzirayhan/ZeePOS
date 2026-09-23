@@ -663,7 +663,83 @@ export interface Database {
         }
         Relationships: []
       }
+      // Jalur baca admin (migrasi 067): security_invoker = false, digerbangi
+      // `tenant_id = get_my_tenant_id() AND is_admin()` di dalam definisi view.
+      // Sesi non-admin menerima NOL BARIS, bukan error.
+      products_admin_with_category: {
+        Row: {
+          id: number | null
+          sku: string | null
+          barcode: string | null
+          nama: string | null
+          deskripsi: string | null
+          category_id: number | null
+          satuan: SatuanType | null
+          harga_beli: number | null
+          harga_jual: number | null
+          diskon_produk_persen: number | null
+          product_group_id: number | null
+          stok: number | null
+          stok_minimum: number | null
+          foto_url: string | null
+          is_active: boolean | null
+          created_at: string | null
+          updated_at: string | null
+          tenant_id: string | null
+          category_nama: string | null
+          stok_status: StokStatus | null
+        }
+        Relationships: []
+      }
+      product_units_admin: {
+        Row: {
+          id: number | null
+          tenant_id: string | null
+          product_id: number | null
+          nama_satuan: string | null
+          rasio: number | null
+          barcode: string | null
+          harga_beli: number | null
+          harga_jual: number | null
+          is_default: boolean | null
+          created_at: string | null
+        }
+        Relationships: []
+      }
+      // Jalur baca kasir. Migrasi 067 MEMBUANG agregat `laba_kotor` dari view
+      // ini; satu-satunya sumbernya sekarang `transactions_with_kasir_admin`.
       transactions_with_kasir: {
+        Row: {
+          id: number | null
+          nomor_nota: string | null
+          kasir_id: string | null
+          subtotal: number | null
+          diskon_persen: number | null
+          diskon_amount: number | null
+          ppn_persen: number | null
+          ppn_amount: number | null
+          total: number | null
+          metode_bayar: MetodeBayar | null
+          uang_diterima: number | null
+          kembalian: number | null
+          catatan: string | null
+          status: StatusTransaksi | null
+          payment_status: PaymentStatus | null
+          paid_at: string | null
+          confirmed_by: string | null
+          payment_reference: string | null
+          created_at: string | null
+          kasir_nama: string | null
+          confirmed_by_nama: string | null
+          jumlah_item: number | null
+        }
+        Relationships: []
+      }
+      // Jalur baca admin riwayat transaksi (migrasi 067): kolom sama dengan
+      // view kasir **plus** `laba_kotor`, `security_invoker = false`, digerbangi
+      // `tenant_id = get_my_tenant_id() AND is_admin()` di dalam definisi view.
+      // Sesi non-admin menerima NOL BARIS, bukan error.
+      transactions_with_kasir_admin: {
         Row: {
           id: number | null
           nomor_nota: string | null
@@ -925,8 +1001,20 @@ export interface Tenant {
 
 export type ProductWithCategory =
   Database['public']['Views']['products_with_category']['Row']
+/**
+ * Baris jalur baca admin. Satu-satunya sumber `harga_beli` untuk halaman
+ * Produk sejak migrasi 067 membuang kolom itu dari `products_with_category`.
+ */
+export type ProductAdminWithCategory =
+  Database['public']['Views']['products_admin_with_category']['Row']
 export type TransactionWithKasir =
   Database['public']['Views']['transactions_with_kasir']['Row']
+/**
+ * Baris riwayat transaksi jalur admin. Satu-satunya sumber agregat
+ * `laba_kotor` sejak migrasi 067 membuangnya dari `transactions_with_kasir`.
+ */
+export type TransactionWithKasirAdmin =
+  Database['public']['Views']['transactions_with_kasir_admin']['Row']
 
 export interface ProductUnit {
   id: number

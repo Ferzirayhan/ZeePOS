@@ -5,6 +5,7 @@ import {
   confirmTransactionPayment,
   commitTransaction,
   getPendingTransactions,
+  CHECKOUT_TIMEOUT_MESSAGE,
 } from '../api/transactions'
 import {
   closeCashShift,
@@ -22,7 +23,8 @@ import {
 import type { DiscountTierRow } from '../api/products'
 import { getSettings } from '../api/settings'
 import { getAllProductUnitsMap, getProductUnitByBarcode } from '../api/units'
-import { getUnitChoices, findUnitChoice, remainingBaseStockByProduct } from '../lib/units'
+import { getUnitChoices, findUnitChoice, remainingBaseStockByProduct, getQtyDecimals } from '../lib/units'
+import { isRequestTimeoutError } from '../lib/fetchWithTimeout'
 import type { ProductUnit } from '../types/database'
 import { CartItem } from '../components/pos/CartItem'
 import { ProductCard } from '../components/pos/ProductCard'
@@ -34,7 +36,7 @@ import { HeldTransactionsModal } from '../components/pos/HeldTransactionsModal'
 import { NumpadModal } from '../components/pos/NumpadModal'
 import { useHeldCartStore, type HeldCart } from '../stores/heldCartStore'
 import { cacheCatalogProducts, getCachedCatalogProducts } from '../utils/offlineDb'
-import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import { useNetworkStatus } from '../hooks/useOnlineStatus'
 import { buildReceiptBytes, printToThermal } from '../utils/escpos'
 import { audioFeedback } from '../utils/audioFeedback'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -60,10 +62,22 @@ function getPreviewNomorNota() {
   return `NOTA-${format(new Date(), 'yyyyMMdd')}-...`
 }
 
+/**
+ * Pilihan cepat numpad qty. Satuan pecahan (kg, gram, meter, liter) butuh
+ * pecahan yang benar-benar dipakai kasir; satuan diskret mempertahankan daftar
+ * lamanya apa adanya (Property 17 — jalur qty bulat tidak berubah).
+ */
+const FRACTIONAL_QTY_QUICK_OPTIONS = [0.25, 0.5, 0.75, 1, 2, 5]
+const DISCRETE_QTY_QUICK_OPTIONS = [1, 2, 5, 10, 20, 50, 100]
+
 export function POSPage() {
   const user = useAuthStore((state) => state.user)
   const tenantId = useAuthStore((state) => state.tenant?.id) ?? user?.tenant_id ?? ''
-  const isOnline = useOnlineStatus()
+  // Boolean-nya identik dengan `useOnlineStatus()` (navigator.onLine + probe
+  // keterjangkauan); bentuk objek dipakai hanya untuk mendapatkan `revalidate`,
+  // yang dipanggil setelah checkout gagal supaya indikator online jujur seketika
+  // alih-alih menunggu interval probe berikutnya (design C.2).
+  const { isOnline, revalidate: revalidateNetwork } = useNetworkStatus()
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed)
   const pushToast = useToastStore((state) => state.pushToast)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -123,6 +137,14 @@ export function POSPage() {
   const [receiptOpen, setReceiptOpen] = useState(false)
   const [receiptTransaction, setReceiptTransaction] = useState<Transaction | null>(null)
   const [receiptItems, setReceiptItems] = useState<TransactionItem[]>([])
+  // Nama pelanggan struk. Baris `transactions` tidak menyimpan nama (hanya
+  // relasi piutang yang punya `customer_id`), jadi nama harus dibawa bersama
+  // struk: dari `selectedCustomer` saat checkout, dan dari catatan sesi saat
+  // struk pending dicetak ulang setelah konfirmasi dana.
+  const [receiptCustomerName, setReceiptCustomerName] = useState<string | null>(null)
+  // Pelanggan per transaksi pending yang dibuat di sesi ini, supaya struk yang
+  // dicetak dari antrean pending tetap memuat nama pelanggannya.
+  const pendingCustomerNamesRef = useRef<Map<number, string>>(new Map())
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
@@ -131,7 +153,16 @@ export function POSPage() {
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [isHeldModalOpen, setIsHeldModalOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [numpadItem, setNumpadItem] = useState<{ productId: number; unitId?: number; nama: string; currentQty: number } | null>(null)
+  const [numpadItem, setNumpadItem] = useState<{
+    productId: number
+    unitId?: number
+    nama: string
+    currentQty: number
+    /** Satuan jual baris ini; menentukan presisi desimal numpad. */
+    satuan: string
+    /** Rasio ke satuan dasar; menentukan konversi batas stok. */
+    rasio: number
+  } | null>(null)
   const [printingThermal, setPrintingThermal] = useState(false)
   const [confirmModalOpen, setConfirmModalOpen] = useState(false)
   const [confirmTarget, setConfirmTarget] = useState<TransactionWithKasir | null>(null)
@@ -299,6 +330,16 @@ export function POSPage() {
     void Promise.all([loadCatalogData(), loadPendingData()])
   }, [loadCatalogData, loadPendingData])
 
+  // Bon/Tempo hanya sah bila ada pelanggan terpilih. Saat pelanggan dilepas
+  // (deselect, parkir pesanan, transaksi baru), metode bayar harus kembali ke
+  // tunai — kalau tidak, tab Bon tidak dirender tetapi metode_bayar tetap
+  // 'hutang' sehingga checkout mentok di error server tanpa form apa pun.
+  useEffect(() => {
+    if (!selectedCustomer && metode_bayar === 'hutang') {
+      setMetodeBayar('tunai')
+    }
+  }, [metode_bayar, selectedCustomer, setMetodeBayar])
+
   useEffect(() => {
     // Only show root/standalone products (not variants) in the catalog
     let activeProducts = products.filter((p) => {
@@ -338,7 +379,15 @@ export function POSPage() {
     () =>
       remainingBaseStockByProduct(
         items,
-        new Map(items.map((item) => [item.product_id, Number(item.stok_dasar ?? 0)])),
+        // Dua line produk yang sama bisa membawa snapshot stok berbeda (ditambahkan
+        // sebelum & sesudah refresh katalog). Ambil yang TERKECIL, bukan yang terakhir,
+        // supaya batas tombol "+" tidak pernah melebihi stok yang paling pesimistis.
+        items.reduce((acc, item) => {
+          const snapshot = Number(item.stok_dasar ?? 0)
+          const known = acc.get(item.product_id)
+          acc.set(item.product_id, known === undefined ? snapshot : Math.min(known, snapshot))
+          return acc
+        }, new Map<number, number>()),
       ),
     [items],
   )
@@ -354,6 +403,36 @@ export function POSPage() {
     },
     [remainingBaseStock],
   )
+
+  // Presisi & batas numpad qty diturunkan dari baris keranjang yang sedang
+  // diedit (design D.3):
+  //  - `decimalPlaces` dari satuan baris, sehingga 0,25 kg dapat diketik dan
+  //    digit di luar presisi kolom `transaction_items.qty NUMERIC(12,3)` ditolak.
+  //  - `maxValue` adalah sisa stok baris DALAM SATUAN JUAL, bukan konstanta 9999.
+  //    `cartStore.updateQty` tetap penjaga terakhir (klausa 3.4); numpad hanya
+  //    mencegah input yang sudah pasti ditolak store.
+  const numpadConstraints = useMemo(() => {
+    const decimalPlaces = getQtyDecimals(numpadItem?.satuan)
+    const step = decimalPlaces > 0 ? 10 ** -decimalPlaces : 1
+    const rasio = Number(numpadItem?.rasio ?? 1) || 1
+    const remainingBase = numpadItem ? remainingBaseStock.get(numpadItem.productId) ?? 0 : 0
+    // Sisa dasar sudah dikurangi kebutuhan SELURUH line produk ini, termasuk line
+    // yang sedang diedit; menambahkannya kembali mengembalikan porsi line ini.
+    const baseForThisLine = remainingBase + (numpadItem?.currentQty ?? 0) * rasio
+    // Dibulatkan KE BAWAH pada presisi yang diizinkan: membulatkan ke atas akan
+    // meloloskan angka di numpad yang kemudian ditolak store.
+    const factor = 10 ** decimalPlaces
+    const maxValue = Math.floor((baseForThisLine / rasio) * factor) / factor
+
+    return {
+      decimalPlaces,
+      step,
+      minValue: step,
+      maxValue,
+      quickOptions:
+        decimalPlaces > 0 ? FRACTIONAL_QTY_QUICK_OPTIONS : DISCRETE_QTY_QUICK_OPTIONS,
+    }
+  }, [numpadItem, remainingBaseStock])
 
   const handleAddProduct = (product: ProductWithCategory) => {
     const pid = product.id ?? 0
@@ -519,6 +598,7 @@ export function POSPage() {
         total,
         customer_id: selectedCustomer?.id ?? null,
         customer_nama: selectedCustomer?.nama ?? null,
+        catatan: orderNote.trim() || null,
       })
     } catch {
       pushToast({
@@ -531,6 +611,10 @@ export function POSPage() {
 
     clearCart()
     setSelectedCustomer(null)
+    // Catatan ikut diparkir bersama pesanan, jadi keranjang baru harus bersih:
+    // tanpa ini catatan pelanggan sebelumnya ("Meja 4") menempel dan tercetak
+    // pada struk pelanggan berikutnya.
+    setOrderNote('')
     pushToast({
       title: 'Pesanan Ditahan (F2)',
       description: `${items.length} item berhasil diparkir. Keranjang siap untuk pelanggan baru.`,
@@ -568,6 +652,8 @@ export function POSPage() {
         ppn_persen: resumed.ppn_persen,
         metode_bayar: resumed.metode_bayar,
       })
+
+      setOrderNote(resumed.catatan ?? '')
 
       if (resumed.customer_id) {
         setSelectedCustomer({
@@ -634,18 +720,29 @@ export function POSPage() {
         invoice: receiptTransaction.nomor_nota,
         created_at: format(new Date(receiptTransaction.created_at || Date.now()), 'dd/MM/yyyy HH:mm'),
         cashier: user?.nama || 'Kasir',
+        customer_name: receiptCustomerName ?? undefined,
+        // Satuan, harga satuan, dan diskon baris diteruskan apa adanya supaya
+        // struk thermal mencetak informasi yang sama dengan struk browser
+        // (klausa 2.15): "2 dus x Rp 150.000" alih-alih "2x".
         items: receiptItems.map((item) => ({
           name: item.nama_produk,
-          qty: item.qty,
-          price: Number(item.subtotal || 0),
+          qty: Number(item.qty),
+          unit: item.nama_satuan,
+          unitPrice: Number(item.harga_satuan ?? 0),
+          discountPercent: Number(item.diskon_item_persen ?? 0),
+          lineTotal: Number(item.subtotal || 0),
         })),
         subtotal: Number(receiptTransaction.subtotal || 0),
         discount_total: Number(receiptTransaction.diskon_amount || 0),
         ppn_total: Number(receiptTransaction.ppn_amount || 0),
         grand_total: Number(receiptTransaction.total || 0),
         payment_method_label: receiptTransaction.metode_bayar?.toUpperCase(),
-        cash_received: receiptTransaction.uang_diterima ? Number(receiptTransaction.uang_diterima) : undefined,
-        change: receiptTransaction.kembalian ? Number(receiptTransaction.kembalian) : undefined,
+        // `?? undefined`, BUKAN pemeriksaan truthy: uang pas menghasilkan
+        // `kembalian = 0`, dan nilai 0 yang dulu dibuang di sini membuat baris
+        // "Kembalian Rp 0" hilang dari struk thermal padahal ada di struk browser.
+        cash_received: receiptTransaction.uang_diterima ?? undefined,
+        change: receiptTransaction.kembalian ?? undefined,
+        note: receiptTransaction.catatan ?? undefined,
         footer: 'Terima kasih atas kunjungan Anda!',
       }
 
@@ -882,6 +979,9 @@ export function POSPage() {
       if (committed.payment_status === 'dibayar') {
         setReceiptTransaction(receiptTx)
         setReceiptItems(receiptItms)
+        // Diambil SEBELUM `setSelectedCustomer(null)` di bawah; struk thermal
+        // dicetak setelah keranjang dibersihkan.
+        setReceiptCustomerName(selectedCustomer?.nama ?? null)
         setReceiptOpen(true)
         pushToast({
           title: 'Pembayaran berhasil',
@@ -889,6 +989,12 @@ export function POSPage() {
           variant: 'success',
         })
       } else {
+        // Struk pending baru dicetak setelah dana dikonfirmasi, saat pelanggan
+        // sudah dilepas dari keranjang — namanya dicatat di sini supaya tetap
+        // tercetak nanti.
+        if (selectedCustomer?.nama) {
+          pendingCustomerNamesRef.current.set(committed.transaction_id, selectedCustomer.nama)
+        }
         setMobileSection('pending')
         pushToast({
           title: 'Transaksi disimpan',
@@ -915,12 +1021,23 @@ export function POSPage() {
         })
       })
     } catch (error) {
+      // Batas waktu bukan kegagalan biasa: kasir perlu tahu bahwa menekan
+      // "Coba Lagi" aman karena kunci idempotensi TIDAK dirotasi selama payload
+      // keranjang tidak berubah (design C.1, Property 13 & 14).
+      const timedOut = isRequestTimeoutError(error)
       pushToast({
-        title: 'Transaksi gagal',
-        description:
-          error instanceof Error ? error.message : 'Sistem belum berhasil memproses pembayaran.',
+        title: timedOut ? 'Server tidak merespons' : 'Transaksi gagal',
+        description: timedOut
+          ? CHECKOUT_TIMEOUT_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : 'Sistem belum berhasil memproses pembayaran.',
         variant: 'error',
       })
+      // Checkout gagal adalah bukti terbaru tentang keterjangkauan server:
+      // probe ulang sekarang supaya indikator online tidak berbohong sampai
+      // interval berikutnya.
+      revalidateNetwork()
     } finally {
       processingPaymentRef.current = false
       setProcessingPayment(false)
@@ -942,6 +1059,9 @@ export function POSPage() {
       setPaymentReference('')
       setReceiptTransaction(detail.transaction)
       setReceiptItems(detail.items)
+      setReceiptCustomerName(
+        pendingCustomerNamesRef.current.get(detail.transaction.id) ?? null,
+      )
       setReceiptOpen(true)
       pushToast({
         title: 'Pembayaran dikonfirmasi',
@@ -1007,6 +1127,7 @@ export function POSPage() {
     setReceiptOpen(false)
     setReceiptTransaction(null)
     setReceiptItems([])
+    setReceiptCustomerName(null)
     setSearchQuery('')
     searchInputRef.current?.focus()
   }
@@ -1445,6 +1566,8 @@ export function POSPage() {
                         unitId: item.unit_id,
                         nama: item.nama_produk,
                         currentQty: item.qty,
+                        satuan: item.satuan,
+                        rasio: Number(item.rasio ?? 1),
                       })
                     }
                     onSetQty={(qty) => {
@@ -1648,6 +1771,7 @@ export function POSPage() {
         variant="danger"
         onConfirm={() => {
           clearCart()
+          setOrderNote('')
           setShowClearConfirm(false)
         }}
         onCancel={() => setShowClearConfirm(false)}
@@ -1936,9 +2060,11 @@ export function POSPage() {
           onClose={() => setNumpadItem(null)}
           title={`Atur Jumlah: ${numpadItem.nama}`}
           initialValue={numpadItem.currentQty}
-          minValue={1}
-          maxValue={9999}
-          quickOptions={[1, 2, 5, 10, 20, 50, 100]}
+          decimalPlaces={numpadConstraints.decimalPlaces}
+          step={numpadConstraints.step}
+          minValue={numpadConstraints.minValue}
+          maxValue={numpadConstraints.maxValue}
+          quickOptions={numpadConstraints.quickOptions}
           onConfirm={(val) => {
             try {
               updateQty(numpadItem.productId, val, numpadItem.unitId)

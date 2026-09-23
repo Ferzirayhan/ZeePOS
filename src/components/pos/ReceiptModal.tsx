@@ -152,9 +152,15 @@ export function ReceiptModal({
           </p>
           <div className="space-y-2">
             {items.map((item) => (
-              <div key={item.id} className="flex items-center justify-between text-sm">
+              <div key={item.id} className="flex items-start justify-between gap-3 text-sm">
                 <span className="text-[#1b1e20]">
-                  {item.nama_produk} ({item.qty}x)
+                  {item.nama_produk} ({item.qty}
+                  {item.nama_satuan ? ` ${item.nama_satuan}` : ''}x)
+                  {Number(item.diskon_item_persen ?? 0) > 0 && (
+                    <span className="ml-1 text-xs font-bold text-[#16a34a]">
+                      -{Number(item.diskon_item_persen)}%
+                    </span>
+                  )}
                 </span>
                 <CurrencyDisplay value={Number(item.subtotal)} />
               </div>

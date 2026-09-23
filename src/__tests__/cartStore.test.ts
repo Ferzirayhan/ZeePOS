@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useCartStore } from '../stores/cartStore'
+import type { CartItem } from '../types'
 import type { ProductWithCategory } from '../types/database'
 
 function mockProduct(overrides: Partial<ProductWithCategory> = {}): ProductWithCategory {
@@ -29,7 +30,10 @@ function mockProduct(overrides: Partial<ProductWithCategory> = {}): ProductWithC
 
 describe('cartStore', () => {
   beforeEach(() => {
+    // clearCart sengaja mempertahankan tarif PPN (konfigurasi toko), jadi reset
+    // tarifnya secara eksplisit supaya antar-test tetap terisolasi.
     useCartStore.getState().clearCart()
+    useCartStore.getState().setPpnPersen(0)
   })
 
   describe('addItem', () => {
@@ -151,17 +155,105 @@ describe('cartStore', () => {
   })
 
   describe('clearCart', () => {
-    it('reset semua state termasuk ppn_persen', () => {
+    it('reset isi keranjang dan diskon transaksi', () => {
       useCartStore.getState().addItem(mockProduct())
       useCartStore.getState().setDiskon(20)
-      useCartStore.getState().setPpnPersen(11)
       useCartStore.getState().clearCart()
 
       const state = useCartStore.getState()
       expect(state.items).toHaveLength(0)
       expect(state.diskon_persen).toBe(0)
-      expect(state.ppn_persen).toBe(0)
       expect(state.total).toBe(0)
+    })
+
+    it('mempertahankan tarif PPN toko agar keranjang berikutnya tetap dikutip dengan PPN', () => {
+      // Regresi: ppn_persen sempat ter-reset ke 0 di sini, sehingga setelah
+      // "Tahan Pesanan" / "Kosongkan Keranjang" kasir dikutip total tanpa PPN
+      // sedangkan server tetap menagih PPN (checkout tunai ditolak).
+      useCartStore.getState().setPpnPersen(11)
+      useCartStore.getState().addItem(mockProduct())
+      useCartStore.getState().clearCart()
+
+      expect(useCartStore.getState().ppn_persen).toBe(11)
+
+      useCartStore.getState().addItem(mockProduct())
+      expect(useCartStore.getState().ppn_amount).toBeGreaterThan(0)
+    })
+  })
+
+  /**
+   * Preservation klausa 3.11 (baseline task 2): perilaku parkir → lanjut pesanan.
+   * Nilai di bawah diamati pada kode sebelum perbaikan apa pun di batch ini.
+   */
+  describe('restoreCart (preservation 3.11)', () => {
+    it('memulihkan line beserta stok dasar dan menegakkan kembali batas stok agregat', () => {
+      useCartStore.getState().setPpnPersen(11)
+      useCartStore.getState().restoreCart({
+        items: [
+          {
+            product_id: 1,
+            sku: 'TST-001',
+            nama_produk: 'Test Produk (dus)',
+            harga_satuan: 100000,
+            qty: 3,
+            subtotal: 300000,
+            stok_dasar: 48,
+            satuan: 'dus',
+            discount_tiers: [],
+            diskon_produk_persen: 0,
+            diskon_item_persen: 0,
+            rasio: 12,
+            unit_id: 91,
+          },
+        ],
+        diskon_persen: 5,
+        use_ppn: true,
+      })
+
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(1)
+      expect(state.subtotal).toBe(300000)
+      expect(state.diskon_persen).toBe(5)
+      expect(state.diskon_amount).toBe(15000)
+      // ppn_persen toko dipertahankan saat payload tidak membawanya.
+      expect(state.ppn_persen).toBe(11)
+      expect(state.ppn_amount).toBe(31350)
+      expect(state.total).toBe(316350)
+      // uang diterima selalu direset oleh restore.
+      expect(state.uang_diterima).toBe(0)
+
+      // Batas stok agregat ditegakkan kembali: 4 dus = 48 base masih pas, 5 dus ditolak.
+      useCartStore.getState().updateQty(1, 4, 91)
+      expect(useCartStore.getState().items[0].qty).toBe(4)
+      expect(() => useCartStore.getState().updateQty(1, 5, 91)).toThrow('melebihi stok')
+    })
+
+    it('menormalkan payload parkir lama yang menyimpan stok dalam satuan jual', () => {
+      useCartStore.getState().restoreCart({
+        items: [
+          {
+            product_id: 1,
+            sku: 'TST-001',
+            nama_produk: 'Test Produk (dus)',
+            harga_satuan: 100000,
+            qty: 1,
+            subtotal: 100000,
+            satuan: 'dus',
+            discount_tiers: [],
+            diskon_produk_persen: 0,
+            diskon_item_persen: 0,
+            rasio: 12,
+            unit_id: 91,
+            // payload lama: stok_tersedia dalam satuan jual (dus), tanpa stok_dasar
+            stok_tersedia: 3,
+          } as unknown as CartItem,
+        ],
+      })
+
+      expect(useCartStore.getState().items[0].stok_dasar).toBe(36)
+      useCartStore.getState().updateQty(1, 3, 91)
+      expect(useCartStore.getState().items[0].qty).toBe(3)
+      expect(() => useCartStore.getState().updateQty(1, 4, 91)).toThrow('melebihi stok')
     })
   })
 })

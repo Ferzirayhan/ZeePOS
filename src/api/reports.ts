@@ -1,13 +1,12 @@
+import { addDays, differenceInCalendarDays, format } from 'date-fns'
 import {
-  addDays,
-  differenceInCalendarDays,
-  endOfDay,
-  format,
-  formatISO,
-  startOfDay,
-  subDays,
-} from 'date-fns'
-import { getISOEndOfDay, getISOStartOfDay, formatLocalDateKey } from '../utils/date'
+  addWIBDays,
+  getISOEndOfDay,
+  getISOExclusiveEndOfDay,
+  getISOStartOfDay,
+  getWIBDateKey,
+  getWIBToday,
+} from '../utils/date'
 import { supabase } from '../lib/supabase'
 import type {
   DashboardChangeSummary,
@@ -17,7 +16,21 @@ import type {
   SalesReport,
   TopProduct,
 } from '../types'
-import type { MetodeBayar, PaymentStatus, TransactionWithKasir } from '../types/database'
+import type {
+  MetodeBayar,
+  PaymentStatus,
+  TransactionWithKasir,
+  TransactionWithKasirAdmin,
+} from '../types/database'
+
+/**
+ * Riwayat transaksi halaman Laporan dibaca dari jalur admin (migrasi 067).
+ * `transactions_with_kasir` tidak lagi memuat agregat `laba_kotor`, jadi kolom
+ * Laba hanya punya satu sumber sah: `transactions_with_kasir_admin`, yang
+ * digerbangi `tenant_id = get_my_tenant_id() AND is_admin()` DI DALAM definisi
+ * view — sesi non-admin menerima NOL BARIS, bukan error.
+ */
+export const TRANSACTION_HISTORY_ADMIN_VIEW = 'transactions_with_kasir_admin'
 
 export async function getDashboardStats(): Promise<DashboardStats> {
   const { data, error } = await supabase.rpc('get_dashboard_stats')
@@ -40,10 +53,24 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 }
 
-function buildDayRange(date: Date) {
+/**
+ * Rentang satu hari WIB: batas bawah inklusif, batas atas eksklusif di awal hari
+ * berikutnya — batas yang sama dengan `date_trunc('day', NOW() AT TIME ZONE
+ * 'Asia/Jakarta')` milik `get_dashboard_stats`.
+ *
+ * Versi sebelumnya memakai `formatISO(startOfDay(date))`/`endOfDay(date)` yang
+ * mengikuti timezone perangkat. Pada perangkat WITA menjelang tengah malam WIB
+ * hasilnya bukan hanya bergeser sehari, tetapi juga **tidak konsisten di dalam
+ * dirinya**: batas bawah ber-offset perangkat (`+08:00`) sedangkan batas atas
+ * sudah dinormalkan ke WIB (`+07:00`), sehingga jendelanya 25 jam.
+ */
+export function buildDayRange(value: Date | string = new Date()) {
+  const key = getWIBDateKey(value)
+
   return {
-    from: formatISO(startOfDay(date)),
-    to: formatISO(endOfDay(date)),
+    key,
+    from: getISOStartOfDay(key),
+    to: getISOExclusiveEndOfDay(key),
   }
 }
 
@@ -63,11 +90,15 @@ function calculateDelta(current: number, previous: number) {
   }
 }
 
-async function getDailySnapshot(date: Date) {
-  const range = buildDayRange(date)
+async function getDailySnapshot(value: Date | string) {
+  // Kunci WIB diteruskan apa adanya: `getSalesReport`/`getTopProducts` mengikat
+  // batasnya sendiri lewat `getISOStartOfDay`/`getISOExclusiveEndOfDay`, jadi
+  // hasilnya identik dengan `buildDayRange(key)`. Meneruskan batas yang SUDAH
+  // eksklusif akan menggeser batas atas dua kali (sehari terlalu jauh).
+  const { key } = buildDayRange(value)
   const [sales, topProduct] = await Promise.all([
-    getSalesReport(range.from, range.to),
-    getTopProducts(range.from, range.to, 1),
+    getSalesReport(key, key),
+    getTopProducts(key, key, 1),
   ])
 
   const totalPenjualan = sales.reduce((sum, item) => sum + item.totalPenjualan, 0)
@@ -84,8 +115,10 @@ async function getDailySnapshot(date: Date) {
 }
 
 export async function getDashboardChangeSummary(): Promise<DashboardChangeSummary> {
-  const today = new Date()
-  const yesterday = subDays(today, 1)
+  // Hari kalender WIB, bukan hari perangkat: kartu "penjualan hari ini" berdiri
+  // berdampingan dengan `get_dashboard_stats` yang memakai batas Asia/Jakarta.
+  const today = getWIBToday()
+  const yesterday = addWIBDays(today, -1)
 
   const [todaySnapshot, yesterdaySnapshot] = await Promise.all([
     getDailySnapshot(today),
@@ -190,7 +223,9 @@ export async function getSalesReport(
   void groupBy
 
   const fromIso = getISOStartOfDay(dateFrom)
-  const toIso = getISOEndOfDay(dateTo)
+  // Batas atas eksklusif: `created_at` punya presisi sub-detik, jadi `.lte(23:59:59)`
+  // membuang penjualan pada 23:59:59.4.
+  const toExclusiveIso = getISOExclusiveEndOfDay(dateTo)
 
   const { data, error } = await supabase
     .from('transactions')
@@ -198,7 +233,7 @@ export async function getSalesReport(
     .eq('status', 'selesai')
     .eq('payment_status', 'dibayar')
     .gte('created_at', fromIso)
-    .lte('created_at', toIso)
+    .lt('created_at', toExclusiveIso)
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -208,7 +243,9 @@ export async function getSalesReport(
   const reportMap = new Map<string, SalesReport>()
 
   for (const transaction of data ?? []) {
-    const key = formatLocalDateKey(transaction.created_at)
+    // Bucket harian WIB agar cocok dengan `DATE(created_at AT TIME ZONE
+    // 'Asia/Jakarta')` yang dipakai RPC laporan.
+    const key = getWIBDateKey(transaction.created_at)
 
     if (!key) continue
 
@@ -237,9 +274,11 @@ export async function getTopProducts(
   dateTo: string,
   limit = 10,
 ): Promise<TopProduct[]> {
+  // p_date_to bersifat EKSKLUSIF (migrasi 066): awal hari berikutnya, supaya
+  // transaksi pada detik terakhir hari tidak hilang dari agregasi.
   const { data, error } = await supabase.rpc('get_top_products', {
     p_date_from: getISOStartOfDay(dateFrom),
-    p_date_to: getISOEndOfDay(dateTo),
+    p_date_to: getISOExclusiveEndOfDay(dateTo),
     p_limit: limit,
   })
 
@@ -318,17 +357,17 @@ export async function getLatestTransactions(limit = 5, paymentStatus?: PaymentSt
 }
 
 export async function getSalesTrend(days = 7): Promise<SalesReport[]> {
-  const to = new Date()
-  const from = new Date()
-  from.setDate(to.getDate() - (days - 1))
+  // Rentang dan kunci sumbu-x sama-sama kunci tanggal WIB, jadi label grafik
+  // cocok dengan bucket yang dihasilkan `getSalesReport`.
+  const toKey = getWIBToday()
+  const fromKey = addWIBDays(toKey, -(days - 1))
 
-  const report = await getSalesReport(formatISO(startOfDay(from)), formatISO(endOfDay(to)))
+  const report = await getSalesReport(fromKey, toKey)
   const reportMap = new Map(report.map((item) => [item.tanggal, item]))
   const filledReport: SalesReport[] = []
 
   for (let index = 0; index < days; index += 1) {
-    const currentDate = addDays(startOfDay(from), index)
-    const key = format(currentDate, 'yyyy-MM-dd')
+    const key = addWIBDays(fromKey, index)
     const currentItem = reportMap.get(key)
 
     filledReport.push({
@@ -350,6 +389,72 @@ export interface ReportSummary {
   totalHpp: number
   totalLabaKotor: number
   marginPersen: number
+  /** Omzet basis akrual — termasuk penjualan hutang yang belum tertagih. */
+  omzetAkrual: number
+  /**
+   * Kas yang benar-benar masuk pada rentang: penjualan tunai/QRIS/transfer +
+   * cicilan piutang − refund kas. Boleh NEGATIF bila refund melebihi penerimaan
+   * pada jendela tersebut, jadi jangan diklem ke 0.
+   */
+  kasDiterima: number
+  /** Penjualan hutang baru pada rentang (belum menjadi kas). */
+  piutangBaru: number
+}
+
+interface CashReceiptsSummary {
+  omzetAkrual: number
+  kasDariPenjualan: number
+  kasDariCicilan: number
+  refundKas: number
+  kasDiterima: number
+  piutangBaru: number
+}
+
+interface CashReceiptsSummaryRow {
+  omzet_akrual: number | string | null
+  kas_dari_penjualan: number | string | null
+  kas_dari_cicilan: number | string | null
+  refund_kas: number | string | null
+  kas_diterima: number | string | null
+  piutang_baru: number | string | null
+}
+
+/**
+ * `get_cash_receipts_summary` (migrasi 067) digerbangi `is_admin()` dan MENOLAK
+ * sesi kasir dengan `P0001: Ringkasan kas hanya dapat diakses admin`. Penolakan
+ * itu tidak boleh menjatuhkan seluruh pemuatan laporan: dimensi kas didegradasi
+ * (null) dan pemanggil jatuh kembali ke angka akrual.
+ *
+ * Batas atas EKSKLUSIF, sama seperti leg lain di modul ini.
+ */
+async function getCashReceiptsSummary(
+  fromIso: string,
+  toExclusiveIso: string,
+): Promise<CashReceiptsSummary | null> {
+  const { data, error } = await supabase.rpc('get_cash_receipts_summary' as never, {
+    p_date_from: fromIso,
+    p_date_to: toExclusiveIso,
+  } as never)
+
+  if (error) {
+    return null
+  }
+
+  const rows = data as unknown as CashReceiptsSummaryRow[] | CashReceiptsSummaryRow | null
+  const row = Array.isArray(rows) ? rows[0] : rows
+
+  if (!row) {
+    return null
+  }
+
+  return {
+    omzetAkrual: Number(row.omzet_akrual ?? 0),
+    kasDariPenjualan: Number(row.kas_dari_penjualan ?? 0),
+    kasDariCicilan: Number(row.kas_dari_cicilan ?? 0),
+    refundKas: Number(row.refund_kas ?? 0),
+    kasDiterima: Number(row.kas_diterima ?? 0),
+    piutangBaru: Number(row.piutang_baru ?? 0),
+  }
 }
 
 export interface TransactionHistoryFilters {
@@ -363,7 +468,7 @@ export interface TransactionHistoryFilters {
 }
 
 export interface TransactionHistoryPage {
-  data: TransactionWithKasir[]
+  data: TransactionWithKasirAdmin[]
   count: number
 }
 
@@ -418,11 +523,13 @@ export async function getReportSummary(
 ): Promise<ReportSummary> {
   const fromIso = getISOStartOfDay(dateFrom)
   const toIso = getISOEndOfDay(dateTo)
+  const toExclusiveIso = getISOExclusiveEndOfDay(dateTo)
 
-  const [sales, topProducts, profitData] = await Promise.all([
+  const [sales, topProducts, profitData, cashSummary] = await Promise.all([
     getSalesReport(fromIso, toIso),
     getTopProducts(fromIso, toIso, 1),
     getProfitSummary(dateFrom, dateTo),
+    getCashReceiptsSummary(fromIso, toExclusiveIso),
   ])
 
   const { count: pendingCount, error: pendingError } = await supabase
@@ -431,20 +538,33 @@ export async function getReportSummary(
     .eq('status', 'selesai')
     .eq('payment_status', 'menunggu_konfirmasi')
     .gte('created_at', fromIso)
-    .lte('created_at', toIso)
+    .lt('created_at', toExclusiveIso)
 
   if (pendingError) {
     throw new Error(pendingError.message)
   }
 
-  const totalPenjualan = sales.reduce((sum, item) => sum + item.totalPenjualan, 0)
   const jumlahTransaksi = sales.reduce((sum, item) => sum + item.jumlahTransaksi, 0)
   const totalHpp = profitData.reduce((sum, item) => sum + item.totalHpp, 0)
   const totalLabaKotor = profitData.reduce((sum, item) => sum + item.totalLaba, 0)
+
+  // `omzetAkrual` dan `totalPenjualan` adalah SATU angka dengan dua nama:
+  // pemanggil lama memakai `totalPenjualan`, kartu baru memakai label akrual yang
+  // tegas. Keduanya dijaga identik supaya tidak pernah ada dua "omzet" berbeda di
+  // layar. Bila RPC kas tidak tersedia (mis. sesi kasir ditolak `is_admin()`),
+  // angkanya jatuh kembali ke agregasi klien yang sudah ada.
+  const omzetAkrual =
+    cashSummary?.omzetAkrual ?? sales.reduce((sum, item) => sum + item.totalPenjualan, 0)
+  const totalPenjualan = omzetAkrual
   const marginPersen = totalPenjualan > 0 ? (totalLabaKotor / totalPenjualan) * 100 : 0
 
   return {
     totalPenjualan,
+    omzetAkrual,
+    // Dimensi kas hanya ada bila RPC admin berhasil; 0 adalah degradasi, bukan
+    // klaim bahwa tidak ada uang masuk.
+    kasDiterima: cashSummary?.kasDiterima ?? 0,
+    piutangBaru: cashSummary?.piutangBaru ?? 0,
     jumlahTransaksi,
     rataRataTransaksi: jumlahTransaksi > 0 ? totalPenjualan / jumlahTransaksi : 0,
     produkTerlaris: topProducts[0] ?? null,
@@ -464,7 +584,7 @@ export async function getTransactionHistoryPage(
   const to = from + pageSize - 1
 
   let query = supabase
-    .from('transactions_with_kasir')
+    .from(TRANSACTION_HISTORY_ADMIN_VIEW)
     .select('*', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, to)
@@ -474,7 +594,9 @@ export async function getTransactionHistoryPage(
   }
 
   if (filters.dateTo) {
-    query = query.lte('created_at', getISOEndOfDay(filters.dateTo))
+    // Eksklusif di awal hari berikutnya agar transaksi pada detik terakhir hari
+    // (23:59:59.xxx) tetap masuk riwayat.
+    query = query.lt('created_at', getISOExclusiveEndOfDay(filters.dateTo))
   }
 
   if (filters.metodeBayar && filters.metodeBayar !== 'all') {
@@ -507,9 +629,10 @@ export async function getProfitSummary(
   dateFrom: string,
   dateTo: string,
 ): Promise<ProfitSummaryItem[]> {
+  // p_date_to bersifat EKSKLUSIF (migrasi 066): awal hari berikutnya.
   const { data, error } = await supabase.rpc('get_profit_summary', {
     p_date_from: getISOStartOfDay(dateFrom),
-    p_date_to: getISOEndOfDay(dateTo),
+    p_date_to: getISOExclusiveEndOfDay(dateTo),
   })
 
   if (error) {

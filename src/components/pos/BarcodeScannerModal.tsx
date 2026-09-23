@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { Modal } from '../ui/Modal'
 
+// Konstan modul, bukan variabel komponen: dipakai di dalam effect kamera yang
+// dependency-nya sengaja hanya [isOpen].
+const CAMERA_ELEMENT_ID = 'zeepos-camera-stream'
+
 interface BarcodeScannerModalProps {
   isOpen: boolean
   onClose: () => void
@@ -16,7 +20,21 @@ export function BarcodeScannerModal({
   const [errorMessage, setErrorMessage] = useState<string>('')
   const [isStarting, setIsStarting] = useState<boolean>(true)
   const scannerRef = useRef<Html5Qrcode | null>(null)
-  const elementId = 'zeepos-camera-stream'
+
+  // Identitas callback tidak boleh ikut menentukan hidup-matinya kamera.
+  // POSPage meneruskan arrow function inline, jadi setiap re-render induk
+  // (keranjang berubah, toast, event realtime) menghasilkan prop baru. Ketika
+  // prop itu masuk dependency array effect kamera, effect ter-cleanup lalu
+  // dijalankan ulang: stop() → instance baru → start(), dan pemindaian yang
+  // sedang berjalan hilang. Callback disimpan di ref yang disinkronkan effect
+  // terpisah agar effect kamera cukup bergantung pada [isOpen].
+  const onCloseRef = useRef(onClose)
+  const onScanSuccessRef = useRef(onScanSuccess)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+    onScanSuccessRef.current = onScanSuccess
+  }, [onClose, onScanSuccess])
 
   useEffect(() => {
     let isMounted = true
@@ -37,7 +55,7 @@ export function BarcodeScannerModal({
       setIsStarting(true)
       setErrorMessage('')
       try {
-        const scanner = new Html5Qrcode(elementId)
+        const scanner = new Html5Qrcode(CAMERA_ELEMENT_ID)
         scannerRef.current = scanner
 
         await scanner.start(
@@ -54,8 +72,8 @@ export function BarcodeScannerModal({
                 .catch(() => {})
                 .finally(() => {
                   scannerRef.current = null
-                  onScanSuccess(decodedText)
-                  onClose()
+                  onScanSuccessRef.current(decodedText)
+                  onCloseRef.current()
                 })
             }
           },
@@ -93,7 +111,7 @@ export function BarcodeScannerModal({
         })
       }
     }
-  }, [isOpen, onClose, onScanSuccess])
+  }, [isOpen])
 
   return (
     <Modal open={isOpen} onClose={onClose} size="sm">
@@ -116,7 +134,7 @@ export function BarcodeScannerModal({
 
       <div className="p-6 bg-white space-y-4">
         <div className="relative overflow-hidden rounded-2xl bg-black aspect-[4/3] flex items-center justify-center border-2 border-slate-200">
-          <div id={elementId} className="w-full h-full" />
+          <div id={CAMERA_ELEMENT_ID} className="w-full h-full" />
           {isStarting && (
             <div className="absolute inset-0 bg-slate-900/80 flex flex-col items-center justify-center text-white space-y-2">
               <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent" />

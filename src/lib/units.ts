@@ -90,3 +90,35 @@ export function remainingBaseStockByProduct(
   }
   return remaining
 }
+/* ------------------------------------------------------------------ */
+/* Presisi qty per satuan (design D.2, Property 16)                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Satuan yang secara fisik dapat dijual dalam pecahan: berat, panjang, volume.
+ * Nilai dibandingkan setelah `trim().toLowerCase()`, karena `satuan` produk
+ * berasal dari enum `satuan_type` sementara `product_units.nama_satuan`
+ * adalah teks bebas yang diisi admin.
+ */
+const FRACTIONAL_SATUAN = new Set(['kg', 'gram', 'meter', 'liter'])
+
+/**
+ * Plafon jumlah desimal qty. BUKAN angka pilihan bebas: `transaction_items.qty`
+ * bertipe `NUMERIC(12,3)` sejak `supabase/migrations/029_add_new_units_and_decimal_qty.sql`
+ * (begitu pula `products.stok` dan kolom `stock_adjustments`). Presisi di atas 3
+ * desimal dibulatkan diam-diam oleh Postgres saat INSERT, sehingga total yang
+ * dihitung klien akan berbeda dari total yang disimpan server tanpa satu pun
+ * pesan galat. Menaikkan konstanta ini WAJIB didahului migrasi yang menaikkan
+ * skala kolom tersebut.
+ */
+export const MAX_QTY_DECIMALS = 3
+
+/**
+ * Jumlah desimal yang diizinkan untuk satuan tertentu.
+ * Satuan diskret (pcs, lusin, dus, pack, ikat, bal, roll, batang, lembar) → 0.
+ * Satuan pecahan (kg, gram, meter, liter) → `MAX_QTY_DECIMALS`.
+ */
+export function getQtyDecimals(satuan: string | null | undefined): number {
+  if (!satuan) return 0
+  return FRACTIONAL_SATUAN.has(satuan.trim().toLowerCase()) ? MAX_QTY_DECIMALS : 0
+}
