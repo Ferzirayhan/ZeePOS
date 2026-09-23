@@ -297,7 +297,7 @@ export function PaymentModal({
             <div className="bg-blue-50 border border-blue-200/80 rounded-2xl p-3.5 text-xs text-blue-900 font-medium text-left">
               <p className="font-bold">Konfirmasi Penerimaan QRIS</p>
               <p className="text-[11px] text-blue-700 mt-0.5">
-                Pastikan dana sudah masuk di notifikasi merchant Anda sebelum menekan tombol Simpan.
+                Pastikan dana sudah masuk di notifikasi merchant lo sebelum menekan tombol Simpan.
               </p>
             </div>
           </div>

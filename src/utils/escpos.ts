@@ -232,7 +232,7 @@ export function buildReceiptBytes(data: ReceiptData, paperSize: '58mm' | '80mm' 
   }
 
   line()
-  center(data.footer || 'Terima kasih atas kunjungan Anda!')
+  center(data.footer || 'Terima kasih sudah berbelanja!')
   bytes.push(...textBytes('\n\n\n'))
 
   // Auto-cut paper: GS V 66 0

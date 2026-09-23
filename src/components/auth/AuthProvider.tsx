@@ -47,8 +47,8 @@ function AuthFailureScreen({ onRetry, message }: AuthFailureScreenProps) {
           Sesi belum dapat dimuat
         </h1>
         <p className="mt-3 text-sm text-slate-600">
-          Server tidak merespons saat memeriksa sesi Anda. Sesi Anda tidak
-          berakhir — periksa koneksi lalu coba lagi.
+          Server belum ngerespons pas ngecek akun lo. Sesi login lo aman kok,
+          coba periksa koneksi internet lalu coba lagi ya.
         </p>
         {message ? (
           <p className="mt-3 break-words text-xs text-slate-500">{message}</p>

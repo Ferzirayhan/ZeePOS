@@ -81,7 +81,7 @@ export function LoginPage() {
                 Sistem Kasir Pintar untuk Generasi Baru.
               </h1>
               <p className="text-base leading-relaxed text-slate-600 font-medium">
-                Kelola pesanan kasir, kontrol stok barang, dan monitor laba toko langsung dari browser Anda tanpa ribet.
+                Kelola pesanan kasir, pantau stok barang, sampai cek laba bersih toko langsung dari layar HP atau laptop lo.
               </p>
             </div>
 
@@ -93,6 +93,17 @@ export function LoginPage() {
 
           <section className="flex min-h-[560px] items-center justify-center px-6 py-8 sm:px-10 sm:py-12 lg:min-h-[640px] lg:px-14">
             <div className="w-full max-w-sm">
+              <div className="flex items-center justify-between mb-6 lg:hidden">
+                <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#2563eb]">
+                  <span className="material-symbols-outlined text-sm">arrow_back</span>
+                  Beranda
+                </Link>
+                <div className="flex items-center gap-2">
+                  <BrandMark size="sm" />
+                  <span className="font-extrabold text-base tracking-tight text-[#1f2937]">ZeePOS</span>
+                </div>
+              </div>
+
               <div>
                 <h2 className="font-display text-3xl sm:text-4xl font-black tracking-tight text-[#1f2937]">
                   Selamat Datang
@@ -114,7 +125,7 @@ export function LoginPage() {
                     <input
                       type="email"
                       autoComplete="email"
-                      placeholder="Masukkan email Anda"
+                      placeholder="nama@email.com"
                       className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 py-3.5 pl-12 pr-4 text-sm text-[#1f2937] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-4 focus:ring-blue-500/10"
                       {...register('email')}
                     />
@@ -137,7 +148,7 @@ export function LoginPage() {
                     <input
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
-                      placeholder="Masukkan password Anda"
+                      placeholder="Masukkan password akun"
                       className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 py-3.5 pl-12 pr-14 text-sm text-[#1f2937] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-4 focus:ring-blue-500/10"
                       {...register('password')}
                     />

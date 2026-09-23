@@ -279,7 +279,7 @@ export function CustomersPage() {
   return (
     <main
       className={cn(
-        'min-h-screen bg-[#f7f9f9] pb-28 pt-16 transition-[margin] duration-200 md:pb-8 md:pt-6',
+        'min-h-screen bg-[#f7f9f9] pb-28 pt-[calc(env(safe-area-inset-top,0px)+4.75rem)] transition-[margin] duration-200 md:pb-8 md:pt-6',
         sidebarCollapsed ? 'md:ml-16' : 'md:ml-[220px]',
       )}
     >

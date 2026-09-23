@@ -212,7 +212,7 @@ export interface CommittedTransactionResult {
  */
 export const CHECKOUT_TIMEOUT_MESSAGE =
   `Server tidak merespons dalam ${SUPABASE_REQUEST_TIMEOUT_MS / 1000} detik. ` +
-  'Periksa koneksi lalu tekan Coba Lagi — transaksi tidak akan terkirim dua kali.'
+  'Periksa koneksi lalu tekan Coba Lagi, transaksi tidak akan terkirim dua kali.'
 
 /** Label deadline checkout; dipakai `runWithTimeout` dan log diagnostik. */
 export const CHECKOUT_TIMEOUT_LABEL = 'Server'

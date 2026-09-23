@@ -91,7 +91,7 @@ export function BarcodeScannerModal({
           setErrorMessage(
             err instanceof Error
               ? err.message
-              : 'Kamera tidak dapat diakses. Berikan izin akses kamera di browser Anda.',
+              : 'Kamera tidak dapat diakses. Coba izinin akses kamera di browser lo dulu ya.',
           )
         }
       }

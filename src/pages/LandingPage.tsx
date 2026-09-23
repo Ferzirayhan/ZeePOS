@@ -112,59 +112,59 @@ export function LandingPage() {
 
   const features = [
     {
-      icon: 'point_of_sale',
-      tag: 'KASIR',
-      title: 'Kasir Super Gesit',
-      desc: 'UI kasir ringan dan responsif. Cocok di laptop, tablet, hingga smartphone kasir.',
+      icon: 'published_with_changes',
+      tag: 'INVENTARIS GROSIR',
+      title: 'Multi Satuan dan Repack Otomatis',
+      desc: 'Jual per dus, pak, pcs, sampai karungan. Repack karung 50kg jadi 50 kantong 1kg tinggal sekali klik, stok otomatis sinkron tanpa bikin pusing.',
     },
     {
       icon: 'account_balance_wallet',
-      tag: 'KEUANGAN',
-      title: 'Shift & Rekap Kas Laci',
-      desc: 'Buka shift dengan modal awal, tutup shift dengan hitungan uang fisik untuk deteksi selisih kasir.',
+      tag: 'KONTROL KAS',
+      title: 'Shift Kasir Anti Selisih',
+      desc: 'Set modal awal di laci, catat keluar masuk uang kasir, dan itung uang fisik pas tutup toko. Langsung ketahuan klop atau ada selisih uang.',
     },
     {
-      icon: 'badge',
-      tag: 'TIM & KASIR',
-      title: 'Multi-Kasir Mandiri',
-      desc: 'Bikin akun staf kasir langsung dari dashboard. Ganti password atau nonaktifkan kapan saja.',
+      icon: 'pause_circle',
+      tag: 'ANTREAN RAMAI',
+      title: 'Parkir Pesanan Belanja',
+      desc: 'Pembeli mendadak mau ambil barang lain? Parkir dulu pesanannya, layani antrean berikutnya. Gak perlu input ulang dari nol.',
     },
     {
-      icon: 'trending_up',
-      tag: 'LAPORAN',
-      title: 'Laba Bersih & HPP Otomatis',
-      desc: 'Pantau omzet kotor, modal barang, dan keuntungan bersih yang masuk ke kantong toko.',
-    },
-    {
-      icon: 'print',
-      tag: 'HARDWARE',
-      title: 'Support Printer Bluetooth & USB',
-      desc: 'Langsung print ke printer struk kertas 58mm atau 80mm tanpa ribet instalasi driver.',
+      icon: 'schedule',
+      tag: 'PIUTANG',
+      title: 'Catatan Tempo dan Bon Pelanggan',
+      desc: 'Kasih tempo buat langganan lo lengkap sama jatuh tempo. Sisa utang dan cicilan kecatat rapi, gak bakal ada bon nyelip.',
     },
     {
       icon: 'lock',
-      tag: 'KEAMANAN',
-      title: 'Database Terisolasi Multi-Tenant',
-      desc: 'Data penjualan, inventaris, dan pelanggan toko Anda terlindungi dengan Row Level Security mandiri.',
+      tag: 'PRIVASI OWNER',
+      title: 'Modal Toko Terkunci Rapat',
+      desc: 'Kasir lo fokus melayani pembeli aja. Harga modal beli (HPP) sama laba bersih toko lo aman terkunci, cuma owner yang bisa liat.',
+    },
+    {
+      icon: 'qr_code_scanner',
+      tag: 'HEMAT HARDWARE',
+      title: 'Scan Barcode Kamera HP',
+      desc: 'Gak usah beli scanner mahal. Pake kamera HP lo langsung buat scan barcode barang, terus cetak struk via printer thermal Bluetooth.',
     },
   ]
 
   const faqs = [
     {
-      q: 'Apakah ZeePOS membutuhkan komputer atau mesin kasir khusus?',
-      a: 'Tidak. Anda bisa membuka ZeePOS di browser apa pun: laptop, tablet iPad/Android, hingga smartphone yang Anda miliki saat ini.',
+      q: 'Butuh komputer atau mesin kasir khusus gak?',
+      a: 'Gak sama sekali. Lo bisa buka ZeePOS di browser apa aja: laptop, tablet, sampai smartphone yang lagi lo pegang sekarang.',
     },
     {
-      q: 'Apakah printer struk thermal Bluetooth bisa langsung dipakai?',
-      a: 'Bisa. ZeePOS mendukung pencetakan web browser standar yang langsung tersambung ke printer thermal Bluetooth maupun printer USB kabel.',
+      q: 'Bisa langsung konek ke printer thermal Bluetooth?',
+      a: 'Bisa banget. ZeePOS langsung nyambung ke printer thermal Bluetooth maupun kabel USB tanpa ribet instal driver.',
     },
     {
-      q: 'Bagaimana jika toko saya punya beberapa kasir dan shift berbeda?',
-      a: 'ZeePOS dilengkapi fitur Shift Kasir. Kasir memasukkan modal awal saat buka laci, dan saat pergantian shift sistem akan memverifikasi uang fisik dan penjualan untuk mencegah kecurangan.',
+      q: 'Gimana kalau toko gue punya beberapa kasir dan gantian shift?',
+      a: 'Tinggal pake fitur Shift Kasir bawaan. Kasir masukin modal awal pas buka laci, terus pas tutup shift tinggal hitung uang fisik. Langsung ketahuan pas atau ada selisih.',
     },
     {
-      q: 'Apakah data omzet dan stok toko saya aman dari toko lain?',
-      a: 'Sangat aman. Setiap toko memiliki identitas tenant unik dengan enkripsi database PostgreSQL Row Level Security (RLS) ketat. Toko lain tidak bisa melihat data Anda.',
+      q: 'Data omzet sama stok toko gue aman gak?',
+      a: 'Aman banget. Data tiap toko dipisah total pakai Row Level Security PostgreSQL. Toko lain gak bakal bisa ngintip transaksi, stok, atau keuntungan lo.',
     },
   ]
 
@@ -173,22 +173,23 @@ export function LandingPage() {
   return (
     <div className="min-h-screen scroll-smooth bg-[#fafbfa] text-[#1f2937] font-sans antialiased">
       {/* Top Navbar */}
-      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-8">
-          <Link to="/" className="flex items-center gap-3 group">
-            <BrandMark size="md" />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-display text-2xl font-black tracking-tight text-[#1f2937]">ZeePOS</span>
-                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#2563eb] border border-blue-200">
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between px-3.5 sm:px-8">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 group shrink-0">
+            <BrandMark size="sm" className="sm:hidden" />
+            <BrandMark size="md" className="hidden sm:flex" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-display text-xl sm:text-2xl font-black tracking-tight text-[#1f2937]">ZeePOS</span>
+                <span className="hidden sm:inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#2563eb] border border-blue-200">
                   Cloud
                 </span>
               </div>
-              <p className="text-[11px] font-semibold text-slate-500 hidden sm:block">Point of Sale untuk Generasi Baru</p>
+              <p className="text-[11px] font-semibold text-slate-500 hidden md:block">Point of Sale untuk Generasi Baru</p>
             </div>
           </Link>
 
-          <nav className="flex items-center gap-2 sm:gap-6">
+          <nav className="flex items-center gap-1.5 sm:gap-4 shrink-0">
             <a
               href="#solusi"
               className="hidden text-sm font-bold text-slate-600 transition hover:text-[#2563eb] md:block"
@@ -217,28 +218,30 @@ export function LandingPage() {
             {session && user ? (
               <Link
                 to="/dashboard"
-                className="flex items-center gap-1.5 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-black text-[#2563eb] shadow-sm transition hover:bg-blue-100"
+                className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-xs font-black text-[#2563eb] shadow-sm transition hover:bg-blue-100 whitespace-nowrap"
               >
                 <span className="material-symbols-outlined text-base">dashboard</span>
                 <span>Dashboard</span>
               </Link>
             ) : (
-              <Link
-                to="/login"
-                className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300"
-              >
-                <span className="material-symbols-outlined text-base text-[#2563eb]">login</span>
-                <span>Masuk Kasir</span>
-              </Link>
-            )}
+              <>
+                <Link
+                  to="/login"
+                  className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 whitespace-nowrap"
+                >
+                  <span className="material-symbols-outlined text-base text-[#2563eb]">login</span>
+                  <span>Masuk</span>
+                </Link>
 
-            <Link
-              to="/register"
-              className="flex items-center gap-1.5 rounded-2xl bg-[#2563eb] px-4 py-2.5 text-xs font-black text-white shadow-md shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8]"
-            >
-              <span>Trial 7 Hari</span>
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </Link>
+                <Link
+                  to="/register"
+                  className="flex items-center gap-1 rounded-xl bg-[#2563eb] px-3.5 py-2 text-xs font-black text-white shadow-md shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] whitespace-nowrap"
+                >
+                  <span>Coba Gratis</span>
+                  <span className="material-symbols-outlined text-sm hidden sm:inline">arrow_forward</span>
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       </header>
@@ -251,15 +254,15 @@ export function LandingPage() {
             <div className="lg:col-span-7 space-y-6">
               <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-emerald-50 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-[#2563eb]">
                 <span className="flex h-2 w-2 rounded-full bg-[#10b981] animate-ping" />
-                Trial Gratis 7 Hari : Tanpa Kartu Kredit
+                Trial 7 Hari Gratis, Langsung Pakai Tanpa Kartu Kredit
               </div>
 
               <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-black tracking-[-0.04em] text-[#1f2937] leading-[1.08]">
-                Bikin kasir toko Anda <span className="text-[#2563eb]">sat-set</span> dan bebas selisih.
+                Bikin kasir toko lo <span className="text-[#2563eb]">sat-set</span> tanpa drama selisih uang.
               </h1>
 
               <p className="text-base sm:text-xl text-slate-600 font-medium leading-relaxed max-w-2xl">
-                Tinggalkan pencatatan nota kertas. ZeePOS hadir dengan pencatatan pesanan kilat, kontrol stok multi-satuan, rekap modal shift kasir, dan laporan laba bersih otomatis.
+                Tinggalkan bon kertas yang bikin pusing. ZeePOS bantu catat belanjaan kilat, pecah stok dus ke eceran, rekap uang laci kasir, sampai hitung laba bersih otomatis.
               </p>
 
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 pt-2">
@@ -268,14 +271,14 @@ export function LandingPage() {
                   className="flex items-center justify-center gap-2.5 rounded-2xl bg-[#2563eb] px-8 py-4 font-display text-base font-black text-white shadow-xl shadow-[#2563eb]/25 transition hover:bg-[#1d4ed8] hover:-translate-y-0.5"
                 >
                   <span className="material-symbols-outlined text-xl">storefront</span>
-                  Mulai Trial 7 Hari Gratis
+                  Mulai Coba 7 Hari Gratis
                 </Link>
                 <Link
                   to="/login"
                   className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-7 py-4 text-base font-extrabold text-slate-800 transition hover:bg-slate-50 hover:border-slate-300"
                 >
                   <span className="material-symbols-outlined text-xl text-[#2563eb]">login</span>
-                  Masuk ke Kasir
+                  Masuk Kasir
                 </Link>
               </div>
 
@@ -459,13 +462,13 @@ export function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-8">
           <div className="mx-auto max-w-3xl text-center space-y-3">
             <span className="rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-[#2563eb] border border-emerald-100">
-              Fleksibel untuk Berbagai Bidang Usaha
+              Fleksibel Buat Segala Jenis Usaha
             </span>
             <h2 className="font-display text-3xl sm:text-5xl font-black tracking-tight text-[#1f2937]">
-              Satu software, disesuaikan dengan alur bisnis Anda.
+              Satu aplikasi kasir, cocok buat alur toko lo.
             </h2>
             <p className="text-base sm:text-lg text-slate-600 font-medium">
-              Baik Anda meracik minuman, menata rak kelontong, menyusun gantungan baju, atau memuat karung grosir.
+              Mau lo jualan kopi, buka toko kelontong, butik baju, sampai agen sembako grosir karungan.
             </p>
           </div>
 
@@ -553,18 +556,18 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Cara Mulai — 3 Langkah */}
-      <section className="border-t border-slate-200/80 bg-white py-20 sm:py-24">
+      {/* Cara Mulai */}
+      <section className="border-t border-slate-200/80 bg-white py-16 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-8">
           <div className="mx-auto max-w-3xl text-center space-y-3">
             <span className="rounded-full bg-blue-50 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-[#2563eb] border border-blue-100">
-              Mulai dalam Hitungan Menit
+              Alur Gampang
             </span>
             <h2 className="font-display text-3xl sm:text-5xl font-black tracking-tight text-[#1f2937]">
-              Tiga langkah, langsung jualan.
+              Tiga langkah, langsung siap jualan.
             </h2>
             <p className="text-base sm:text-lg text-slate-600 font-medium">
-              Tanpa instalasi, tanpa mesin khusus — cukup browser dan Anda sudah siap melayani pelanggan pertama.
+              Gak perlu pasang alat rumit atau instal aplikasi berat. Cukup buka browser dan lo sudah siap layani transaksi toko.
             </p>
           </div>
 
@@ -573,20 +576,20 @@ export function LandingPage() {
               {
                 step: '1',
                 icon: 'app_registration',
-                title: 'Daftarkan Toko Anda',
-                desc: 'Isi nama toko dan email. Akun pemilik langsung aktif dengan akses dashboard penuh.',
+                title: 'Bikin Akun Toko',
+                desc: 'Tinggal isi nama toko dan email lo. Akun pemilik langsung aktif dengan akses dashboard lengkap.',
               },
               {
                 step: '2',
                 icon: 'category',
-                title: 'Isi Katalog & Stok',
-                desc: 'Tambah produk dengan satuan, harga jual, dan HPP. Scan barcode atau input manual — katalog siap dipakai kasir.',
+                title: 'Atur Produk dan Stok',
+                desc: 'Masukin barang pakai satuan dus, pak, atau pcs. Scan barcode pakai kamera HP atau ketik manual.',
               },
               {
                 step: '3',
                 icon: 'point_of_sale',
-                title: 'Buka Shift & Jualan',
-                desc: 'Set modal kas awal, lakukan transaksi tunai/QRIS/transfer, lalu tutup shift dengan rekap uang fisik yang terverifikasi.',
+                title: 'Buka Kasir dan Gas',
+                desc: 'Isi modal awal laci, layani belanjaan tunai atau QRIS, lalu tutup shift dengan rekap uang fisik yang jelas.',
               },
             ].map((item, idx) => (
               <div key={item.step} className="relative rounded-3xl border border-slate-200/80 bg-[#fafbfa] p-7 shadow-sm">
@@ -658,18 +661,221 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* Comparison Section - Kenapa ZeePOS Unggul */}
+      <section className="scroll-mt-24 border-t border-slate-200/80 bg-white py-16 sm:py-28">
+        <div className="mx-auto max-w-5xl px-4 sm:px-8">
+          <div className="text-center space-y-3">
+            <span className="rounded-full bg-blue-50 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-[#2563eb] border border-blue-100">
+              Perbandingan Nyata
+            </span>
+            <h2 className="font-display text-2xl sm:text-5xl font-black tracking-tight text-[#1f2937]">
+              Kenapa ZeePOS Beda dari POS Biasa?
+            </h2>
+            <p className="text-sm sm:text-lg text-slate-600 font-medium max-w-2xl mx-auto">
+              Banyak aplikasi kasir membatasi fitur atau mematok biaya mahal untuk kebutuhan nyata toko grosir dan retail.
+            </p>
+          </div>
+
+          {/* Mobile View: Stacked Comparison Cards (Rapi & Bebas Geser Sempit) */}
+          <div className="mt-8 space-y-3.5 md:hidden">
+            {[
+              {
+                feature: 'Multi-Satuan & Repack (Dus ke Pcs)',
+                conventional: 'Hanya 1 satuan per produk, repack manual',
+                zeepos: 'Bebas satuan + Repack stok 1-klik instan',
+              },
+              {
+                feature: 'Shift Kasir & Verifikasi Laci Kas',
+                conventional: 'Sering dipungut add-on bulanan mahal',
+                zeepos: 'Buka/tutup shift kas laci bawaan tanpa biaya',
+              },
+              {
+                feature: 'Parkir Pesanan Antrean Ramai',
+                conventional: 'Harus cancel atau antrean kasir macet',
+                zeepos: 'Parkir pesanan tanpa batasan (Hold Cart)',
+              },
+              {
+                feature: 'Jual Tempo & Buku Piutang',
+                conventional: 'Catat manual di buku bon kertas terpisah',
+                zeepos: 'Jatuh tempo + cicilan terintegrasi laporan',
+              },
+              {
+                feature: 'Privasi Modal (HPP) Toko',
+                conventional: 'Kasir sering bisa intip modal barang pemilik',
+                zeepos: 'Terkunci ketat di level PostgreSQL RLS',
+              },
+              {
+                feature: 'Kebutuhan Perangkat (Hardware)',
+                conventional: 'Wajib beli tablet/mesin kasir jutaan',
+                zeepos: 'Cukup gunakan smartphone atau laptop yang ada',
+              },
+            ].map((item) => (
+              <div
+                key={item.feature}
+                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+              >
+                <p className="font-display text-sm font-black text-slate-900 mb-3">
+                  {item.feature}
+                </p>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-start gap-2 rounded-xl bg-slate-50 p-2.5 text-slate-500">
+                    <span className="material-symbols-outlined text-base text-rose-500 shrink-0 mt-0.5">
+                      cancel
+                    </span>
+                    <div>
+                      <span className="font-bold text-slate-600 block text-[10px] uppercase tracking-wider">
+                        POS Biasa
+                      </span>
+                      <span>{item.conventional}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 rounded-xl bg-blue-50/70 p-2.5 text-slate-900 border border-blue-100">
+                    <span className="material-symbols-outlined text-base text-emerald-600 shrink-0 mt-0.5">
+                      check_circle
+                    </span>
+                    <div>
+                      <span className="font-black text-[#2563eb] block text-[10px] uppercase tracking-wider">
+                        ZeePOS
+                      </span>
+                      <span className="font-bold text-emerald-950">{item.zeepos}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop View: Full Table View */}
+          <div className="mt-12 hidden md:block overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-900/5">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-black uppercase tracking-wider text-slate-500">
+                  <th className="py-4 px-6">Kebutuhan Operasional Toko</th>
+                  <th className="py-4 px-6 text-slate-400">Aplikasi POS Biasa</th>
+                  <th className="py-4 px-6 bg-blue-50/60 text-[#2563eb]">ZeePOS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                <tr>
+                  <td className="py-4 px-6 font-bold text-slate-900">
+                    Jual Multi-Satuan & Repack Otomatis (Dus → Pcs)
+                  </td>
+                  <td className="py-4 px-6 text-slate-500">
+                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <span className="material-symbols-outlined text-base text-rose-500">cancel</span>
+                      Hanya 1 satuan per produk
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 bg-blue-50/30 font-bold text-emerald-900">
+                    <span className="inline-flex items-center gap-1.5 text-emerald-800">
+                      <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+                      Bebas satuan + Repack 1-klik
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-4 px-6 font-bold text-slate-900">
+                    Shift Kasir & Verifikasi Selisih Uang Laci
+                  </td>
+                  <td className="py-4 px-6 text-slate-500">
+                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <span className="material-symbols-outlined text-base text-amber-500">remove_circle</span>
+                      Sering bayar add-on mahal
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 bg-blue-50/30 font-bold text-emerald-900">
+                    <span className="inline-flex items-center gap-1.5 text-emerald-800">
+                      <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+                      Buka/tutup shift kas laci bawaan
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-4 px-6 font-bold text-slate-900">
+                    Parkir Pesanan Antrean Ramai (Hold Cart)
+                  </td>
+                  <td className="py-4 px-6 text-slate-500">
+                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <span className="material-symbols-outlined text-base text-rose-500">cancel</span>
+                      Harus cancel / antrean macet
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 bg-blue-50/30 font-bold text-emerald-900">
+                    <span className="inline-flex items-center gap-1.5 text-emerald-800">
+                      <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+                      Parkir pesanan tanpa batasan
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-4 px-6 font-bold text-slate-900">
+                    Jual Tempo & Buku Piutang Pelanggan
+                  </td>
+                  <td className="py-4 px-6 text-slate-500">
+                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <span className="material-symbols-outlined text-base text-rose-500">cancel</span>
+                      Catat manual di buku terpisah
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 bg-blue-50/30 font-bold text-emerald-900">
+                    <span className="inline-flex items-center gap-1.5 text-emerald-800">
+                      <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+                      Jatuh tempo + cicilan otomatis
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-4 px-6 font-bold text-slate-900">
+                    Privasi Modal (HPP) Terkunci dari Kasir
+                  </td>
+                  <td className="py-4 px-6 text-slate-500">
+                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <span className="material-symbols-outlined text-base text-rose-500">cancel</span>
+                      Kasir sering bisa intip modal
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 bg-blue-50/30 font-bold text-emerald-900">
+                    <span className="inline-flex items-center gap-1.5 text-emerald-800">
+                      <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+                      Di-lock ketat di level PostgreSQL
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-4 px-6 font-bold text-slate-900">
+                    Kebutuhan Perangkat Keras (Hardware)
+                  </td>
+                  <td className="py-4 px-6 text-slate-500">
+                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <span className="material-symbols-outlined text-base text-amber-500">error</span>
+                      Wajib beli tablet/mesin jutaan
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 bg-blue-50/30 font-bold text-emerald-900">
+                    <span className="inline-flex items-center gap-1.5 text-emerald-800">
+                      <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+                      Pakai HP smartphone yang ada
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ Section */}
       <section id="faq" className="scroll-mt-24 border-t border-slate-200/80 bg-white py-20 sm:py-28">
         <div className="mx-auto max-w-4xl px-4 sm:px-8">
           <div className="text-center space-y-3">
             <span className="rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-[#2563eb] border border-emerald-100">
-              Tanya Jawab
+              FAQ Santai
             </span>
             <h2 className="font-display text-3xl sm:text-4xl font-black tracking-tight text-[#1f2937]">
-              Pertanyaan yang Sering Diajukan
+              Yang Sering Ditanyain
             </h2>
             <p className="text-base text-slate-600 font-medium">
-              Hal-hal yang sering ditanyakan pemilik usaha saat pertama kali mencoba ZeePOS.
+              Hal-hal yang sering ditanyain pemilik toko pas pertama kali nyobain ZeePOS.
             </p>
           </div>
 
@@ -705,13 +911,13 @@ export function LandingPage() {
         <div className="mx-auto max-w-7xl rounded-3xl bg-gradient-to-br from-blue-600 to-blue-700 p-8 sm:p-14 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden">
           <div className="relative z-10 max-w-2xl space-y-5">
             <span className="rounded-full bg-[#2563eb] px-3.5 py-1 text-xs font-black uppercase tracking-wider text-white">
-              Uji Coba 7 Hari Gratis
+              Coba Gratis 7 Hari
             </span>
             <h2 className="font-display text-3xl sm:text-5xl font-black tracking-tight leading-tight text-white">
-              Buka kasir digital Anda sekarang juga.
+              Buka kasir digital buat toko lo sekarang juga.
             </h2>
             <p className="text-base sm:text-lg text-blue-100 font-medium">
-              Akses penuh semua fitur selama 7 hari tanpa komitmen. Cukup daftarkan email dan nama toko Anda.
+              Bebas akses semua fitur selama 7 hari tanpa komitmen. Cukup masukin email dan nama toko lo.
             </p>
             <div className="pt-3 flex flex-col sm:flex-row gap-3">
               <Link
@@ -734,7 +940,7 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-12">
+      <footer className="border-t border-slate-200 bg-white py-10 sm:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-8">
           <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
             <div className="flex items-center gap-3">
@@ -745,18 +951,18 @@ export function LandingPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-6 text-xs font-black text-slate-500">
-              <a href="#solusi" className="hover:text-[#2563eb]">Solusi</a>
-              <a href="#simulator" className="hover:text-[#2563eb]">Simulator</a>
-              <a href="#fitur" className="hover:text-[#2563eb]">Fitur</a>
-              <a href="#faq" className="hover:text-[#2563eb]">FAQ</a>
-              <Link to="/login" className="hover:text-[#2563eb]">Masuk</Link>
-              <Link to="/register" className="text-[#2563eb] hover:underline">Daftar Toko</Link>
+            <div className="grid grid-cols-3 gap-y-3 gap-x-6 text-center sm:flex sm:items-center sm:gap-6 text-xs font-black text-slate-600">
+              <a href="#solusi" className="py-1 hover:text-[#2563eb] transition-colors">Solusi</a>
+              <a href="#simulator" className="py-1 hover:text-[#2563eb] transition-colors">Simulator</a>
+              <a href="#fitur" className="py-1 hover:text-[#2563eb] transition-colors">Fitur</a>
+              <a href="#faq" className="py-1 hover:text-[#2563eb] transition-colors">FAQ</a>
+              <Link to="/login" className="py-1 hover:text-[#2563eb] transition-colors">Masuk</Link>
+              <Link to="/register" className="py-1 text-[#2563eb] hover:underline">Daftar Toko</Link>
             </div>
           </div>
 
           <div className="mt-8 border-t border-slate-100 pt-6 text-center text-xs text-slate-400 font-medium">
-            <p>ZeePOS : Sistem Kasir & Manajemen Stok Multi-Tenant Cloud. Dirancang untuk efisiensi toko modern.</p>
+            <p>© {new Date().getFullYear()} ZeePOS. Sistem kasir dan inventaris cloud untuk efisiensi bisnis retail.</p>
           </div>
         </div>
       </footer>

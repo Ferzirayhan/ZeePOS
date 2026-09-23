@@ -114,8 +114,8 @@ export function RegisterPage() {
             </h1>
             <p className="mt-2 text-sm font-medium text-slate-500">
               {step === 1
-                ? 'Nikmati akses penuh semua fitur ZeePOS gratis selama 7 hari pertama'
-                : 'Lengkapi profil bisnis Anda untuk menyelesaikan setup'}
+                ? 'Cobain semua fitur ZeePOS gratis 7 hari tanpa syarat kartu kredit'
+                : 'Lengkapi profil toko lo buat mulai jualan'}
             </p>
           </div>
 
@@ -147,7 +147,7 @@ export function RegisterPage() {
                 <input
                   type="email"
                   autoComplete="email"
-                  placeholder="Masukkan email Anda"
+                  placeholder="nama@email.com"
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 py-3.5 px-4 text-sm text-[#1f2937] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-4 focus:ring-blue-500/10"
                   {...registerStep1('email')}
                 />

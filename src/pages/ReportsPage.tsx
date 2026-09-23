@@ -523,7 +523,7 @@ export function ReportsPage() {
   return (
     <main
       className={cn(
-        'min-h-screen bg-[#f7f9f9] pt-16 transition-[margin] duration-200 md:pt-0',
+        'min-h-screen bg-[#f7f9f9] pt-[calc(env(safe-area-inset-top,0px)+4.75rem)] transition-[margin] duration-200 md:pt-0',
         sidebarCollapsed ? 'md:ml-16' : 'md:ml-[220px]',
       )}
     >
@@ -674,7 +674,7 @@ export function ReportsPage() {
                     className={summary.kasDiterima < 0 ? 'text-[#d63f2f]' : undefined}
                   />
                 ),
-                caption: 'Tunai, QRIS, transfer, dan cicilan dikurangi refund — penjualan hutang belum termasuk kas.',
+                caption: 'Tunai, QRIS, transfer, dan cicilan dikurangi refund, penjualan hutang belum termasuk kas.',
               },
               { label: 'Jumlah Transaksi', value: summary.jumlahTransaksi },
               { label: 'Rata-rata Transaksi', value: <CurrencyDisplay value={summary.rataRataTransaksi} /> },

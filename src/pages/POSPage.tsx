@@ -743,7 +743,7 @@ export function POSPage() {
         cash_received: receiptTransaction.uang_diterima ?? undefined,
         change: receiptTransaction.kembalian ?? undefined,
         note: receiptTransaction.catatan ?? undefined,
-        footer: 'Terima kasih atas kunjungan Anda!',
+        footer: 'Terima kasih sudah berbelanja!',
       }
 
       const bytes = buildReceiptBytes(receiptData, '58mm')
@@ -1135,7 +1135,7 @@ export function POSPage() {
   return (
     <main
       className={cn(
-        'min-h-screen bg-[#f7f9f9] pb-28 pt-16 transition-[margin] duration-200 md:pb-0 md:pt-0',
+        'min-h-screen bg-[#f7f9f9] pb-28 pt-[calc(env(safe-area-inset-top,0px)+4.75rem)] transition-[margin] duration-200 md:pb-0 md:pt-0',
         sidebarCollapsed ? 'md:ml-16' : 'md:ml-[220px]',
       )}
     >
@@ -1780,7 +1780,7 @@ export function POSPage() {
       <Modal
         open={Boolean(unitPickerProduct)}
         onClose={() => setUnitPickerProduct(null)}
-        title={`Pilih Satuan — ${unitPickerProduct?.nama ?? ''}`}
+        title={`Pilih Satuan: ${unitPickerProduct?.nama ?? ''}`}
         description="Pilih satuan yang ingin ditambahkan ke keranjang."
         size="sm"
       >

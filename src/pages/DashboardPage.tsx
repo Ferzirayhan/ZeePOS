@@ -347,7 +347,7 @@ export function DashboardPage() {
         />
       ) : null,
       caption:
-        'Tunai, QRIS, transfer, dan cicilan dikurangi refund — penjualan hutang belum termasuk kas.',
+        'Tunai, QRIS, transfer, dan cicilan dikurangi refund, penjualan hutang belum termasuk kas.',
     },
     {
       title: 'Jumlah Transaksi',
@@ -389,7 +389,7 @@ export function DashboardPage() {
   return (
     <main
       className={cn(
-        'min-h-screen bg-[#f7f9f9] pt-[4.6rem] transition-[margin] duration-200 md:pt-0',
+        'min-h-screen bg-[#f7f9f9] pt-[calc(env(safe-area-inset-top,0px)+4.75rem)] transition-[margin] duration-200 md:pt-0',
         sidebarCollapsed ? 'md:ml-16' : 'md:ml-[220px]',
       )}
     >
@@ -523,6 +523,82 @@ export function DashboardPage() {
                   </div>
                 </div>
               ) : null}
+            </div>
+          </section>
+
+          {/* Quick Action Navigation Grid - Killer Features 1-Tap */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-black uppercase tracking-wider text-slate-500">
+                Aksi Cepat Kasir & Toko
+              </p>
+              <span className="text-[11px] font-bold text-blue-600">Sering Digunakan</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+              <Link
+                to="/pos"
+                className="group flex items-center gap-3 rounded-2xl border border-blue-200/80 bg-gradient-to-br from-blue-600 to-indigo-600 p-3.5 text-white shadow-md shadow-blue-500/20 transition-all hover:shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur">
+                  <span className="material-symbols-outlined text-xl">point_of_sale</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black leading-tight text-white">Kasir (POS)</p>
+                  <p className="text-[10px] font-medium text-blue-100 truncate">Buka Transaksi</p>
+                </div>
+              </Link>
+
+              <Link
+                to="/stok"
+                className="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:border-amber-300 hover:shadow-md hover:-translate-y-0.5"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                  <span className="material-symbols-outlined text-xl">published_with_changes</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black leading-tight text-slate-800">Repack Stok</p>
+                  <p className="text-[10px] font-medium text-slate-500 truncate">Bongkar Karung/Dus</p>
+                </div>
+              </Link>
+
+              <Link
+                to="/produk"
+                className="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md hover:-translate-y-0.5"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                  <span className="material-symbols-outlined text-xl">add_box</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black leading-tight text-slate-800">Tambah Produk</p>
+                  <p className="text-[10px] font-medium text-slate-500 truncate">Katalog & Satuan</p>
+                </div>
+              </Link>
+
+              <Link
+                to="/pelanggan"
+                className="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:border-purple-300 hover:shadow-md hover:-translate-y-0.5"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-700">
+                  <span className="material-symbols-outlined text-xl">schedule</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black leading-tight text-slate-800">Buku Piutang</p>
+                  <p className="text-[10px] font-medium text-slate-500 truncate">Hutang & Tempo</p>
+                </div>
+              </Link>
+
+              <Link
+                to="/laporan"
+                className="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5 col-span-2 sm:col-span-4 lg:col-span-1"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                  <span className="material-symbols-outlined text-xl">analytics</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black leading-tight text-slate-800">Laba Bersih</p>
+                  <p className="text-[10px] font-medium text-slate-500 truncate">Ekspor Rekap HPP</p>
+                </div>
+              </Link>
             </div>
           </section>
 

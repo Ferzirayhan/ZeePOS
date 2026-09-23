@@ -19,8 +19,11 @@ export function AppLayout() {
 
   return (
     <div
-      className="min-h-screen bg-[#f7f9f9] pb-24 text-on-surface md:pb-0"
-      style={{ ['--app-sidebar-width' as string]: sidebarCollapsed ? '4rem' : '220px' }}
+      className="min-h-screen bg-[#f7f9f9] pb-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] text-on-surface md:pb-0"
+      style={{
+        ['--app-sidebar-width' as string]: sidebarCollapsed ? '4rem' : '220px',
+        ['--mobile-header-height' as string]: 'calc(env(safe-area-inset-top, 0px) + 4.5rem)',
+      }}
     >
       <ToastViewport />
       <PWAInstallPrompt />

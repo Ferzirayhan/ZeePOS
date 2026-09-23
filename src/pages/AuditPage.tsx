@@ -68,7 +68,7 @@ export function AuditPage() {
   return (
     <main
       className={cn(
-        'min-h-screen bg-[#f7f9f9] pt-16 transition-[margin] duration-200 md:pt-0',
+        'min-h-screen bg-[#f7f9f9] pt-[calc(env(safe-area-inset-top,0px)+4.75rem)] transition-[margin] duration-200 md:pt-0',
         sidebarCollapsed ? 'md:ml-16' : 'md:ml-[220px]',
       )}
     >

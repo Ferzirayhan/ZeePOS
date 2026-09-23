@@ -433,7 +433,7 @@ export function SettingsPage() {
   return (
     <main
       className={cn(
-        'min-h-screen bg-[#f7f9f9] pt-16 transition-[margin] duration-200 md:pt-0',
+        'min-h-screen bg-[#f7f9f9] pt-[calc(env(safe-area-inset-top,0px)+4.75rem)] transition-[margin] duration-200 md:pt-0',
         sidebarCollapsed ? 'md:ml-16' : 'md:ml-[220px]',
       )}
     >
@@ -588,7 +588,7 @@ export function SettingsPage() {
                     </div>
                     <div>
                       <h3 className="font-extrabold text-[#1b1e20]">
-                        {settings.nama_toko ?? 'Toko Anda'}
+                        {settings.nama_toko ?? 'Toko Lo'}
                       </h3>
                       <p className="text-sm text-[#52627d]">
                         {settings.no_telp ?? '0812-3456-7890'}
@@ -759,7 +759,7 @@ export function SettingsPage() {
                     Kelola Kasir & Tim
                   </h2>
                   <p className="mt-1 text-sm text-[#52627d]">
-                    Daftarkan akun kasir atau staf tambahan untuk toko Anda secara instan.
+                    Daftarkan akun kasir atau staf tambahan buat toko lo secara instan.
                   </p>
                 </div>
                 {isAdmin ? (
@@ -971,7 +971,7 @@ export function SettingsPage() {
                       {...registerTax('tempo_hutang_hari')}
                     />
                     <span id="tempo_hutang_hari_help" className="block text-xs text-[#8b9895]">
-                      Jatuh tempo piutang dihitung dari tanggal transaksi (WIB) ditambah tempo ini. Rentang 0–365 hari, default 14.
+                      Jatuh tempo piutang dihitung dari tanggal transaksi (WIB) ditambah tempo ini. Rentang 0 sampai 365 hari, default 14.
                     </span>
                     {taxErrors.tempo_hutang_hari ? (
                       <span className="text-sm text-[#ba1a1a]">

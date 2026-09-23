@@ -1142,7 +1142,7 @@ function ProductDrawer({
                     <span className="font-bold text-[#1b1e20]">
                       {watchedHargaBeli > 0
                         ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(watchedHargaBeli)
-                        : '—'}
+                        : '-'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-sm">
@@ -1160,7 +1160,7 @@ function ProductDrawer({
                     <span className="font-extrabold text-[#2563eb]">
                       {hppTotal > 0
                         ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(hppTotal)
-                        : '—'}
+                        : '-'}
                     </span>
                   </div>
                   <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#8b9895]">
@@ -1174,7 +1174,7 @@ function ProductDrawer({
                           <span className="text-sm font-extrabold text-[#1b1e20]">
                             {hargaJual > 0
                               ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(hargaJual)
-                              : '—'}
+                              : '-'}
                           </span>
                           {hargaJual > 0 && (
                             <button
@@ -1614,7 +1614,7 @@ export function ProductsPage() {
   return (
     <main
       className={cn(
-        'min-h-screen bg-[#f7f9f9] pt-16 transition-[margin] duration-200 md:pt-0',
+        'min-h-screen bg-[#f7f9f9] pt-[calc(env(safe-area-inset-top,0px)+4.75rem)] transition-[margin] duration-200 md:pt-0',
         sidebarCollapsed ? 'md:ml-16' : 'md:ml-[220px]',
       )}
     >
