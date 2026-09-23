@@ -11,6 +11,7 @@ node_modules
 dist
 coverage
 dist-ssr
+.kiro
 .env
 .env.*
 !.env.example

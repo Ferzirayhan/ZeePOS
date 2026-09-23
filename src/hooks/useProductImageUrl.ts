@@ -53,7 +53,7 @@ const REFRESH_BUFFER_MS = 5 * 60 * 1000
 
 /**
  * Hook to resolve a product's foto_url to a signed URL (or direct URL).
- * Follows Kiro gate 3.1 decision: Option B — short-TTL signed URLs.
+ * Uses short-TTL signed URLs with in-memory caching.
  */
 export function useProductImageUrl(fotoUrl: string | null | undefined): string | null {
   const path = extractStoragePath(fotoUrl)

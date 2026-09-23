@@ -14,9 +14,8 @@
  * validator perilaku yang benar dan menjaga perbaikannya dari regresi. Asersi
  * "BASELINE" yang pasangan EXPECTED-nya sudah hijau ikut terbalik secara
  * konstruksi (mendokumentasikan perilaku yang sudah tidak ada lagi), jadi ia
- * dipensiunkan di tempatnya masing-masing dengan komentar yang menunjuk ke
- * `.kiro/specs/zeepos-remaining-bug-fixes/verification-notes.md` bagian
- * "Task 1", tempat nilai counterexample-nya tersimpan permanen.
+ * dipensiunkan di tempatnya masing-masing dengan komentar
+ * tempat nilai counterexample-nya tersimpan.
  *
  * Scoped PBT: cacat di batch ini deterministik, jadi properti dipersempit ke
  * kasus gagal konkret agar reproducible. Domain acak dipakai di task 2.
@@ -127,9 +126,7 @@ describe('Kasus 5 — jalur refund tidak punya pemanggil (1.1)', () => {
   // EXPECTED di bawah.
   //
   // Nilai counterexample teramati (nol berkas pemanggil, sementara RPC migrasi
-  // 060 sudah lengkap) tersimpan permanen di
-  // `.kiro/specs/zeepos-remaining-bug-fixes/verification-notes.md`,
-  // bagian "Task 1" → "Kasus 5 — refund tanpa pemanggil".
+  // 060 sudah lengkap) tersimpan di catatan pengujian.
 
   it('EXPECTED: `src/api/transactions.ts` memanggil rpc(\'refund_transaction_atomic\')', () => {
     const api = readFileSync(join(srcRoot, 'api', 'transactions.ts'), 'utf8')
@@ -349,9 +346,7 @@ describe('Kasus 9 — presisi numpad (1.9)', () => {
   // ditolak) plus EXPECTED tombol separator desimal.
   //
   // Nilai counterexample teramati (tampilan `0,25` → `0,255`, `onConfirm`
-  // menerima `0.255`, separator desimal tidak tersedia) tersimpan permanen di
-  // `.kiro/specs/zeepos-remaining-bug-fixes/verification-notes.md`,
-  // bagian "Task 1" → "Kasus 9 — presisi numpad".
+  // menerima `0.255`, separator desimal tidak tersedia) tersimpan di catatan pengujian.
 
   it('EXPECTED: digit yang melewati presisi baris ditolak (0,25 tetap 0,25)', () => {
     renderNumpad(0.25, 2)
@@ -561,9 +556,7 @@ describe('Kasus 13 — struk thermal kehilangan informasi (1.15)', () => {
   //
   // Nilai counterexample teramati (petikan struk ter-decode beserta baris
   // `  2x ... Rp 55.000`, `  0.5x ... Rp 12.500`, `adaBarisKembalian: false`,
-  // dan nama terpotong `Kantong Plastik HD Ukuran 17x35 `) tersimpan permanen di
-  // `.kiro/specs/zeepos-remaining-bug-fixes/verification-notes.md`,
-  // bagian "Task 1" → "Kasus 13 — struk thermal kehilangan informasi".
+  // dan nama terpotong `Kantong Plastik HD Ukuran 17x35 `) tersimpan di catatan pengujian.
 
   it('EXPECTED: satuan tiap baris tercetak (2 dus, bukan 2x)', () => {
     expect(

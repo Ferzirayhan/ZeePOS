@@ -3,8 +3,7 @@
  * 3.11, 3.12, 3.13 (bugfix.md).
  *
  * METODOLOGI: observation-first. Setiap nilai yang diasersi di berkas ini
- * DIAMATI lebih dulu pada kode BELUM diperbaiki (harness sementara, keluarannya
- * ditempel ke `.kiro/specs/zeepos-remaining-bug-fixes/verification-notes.md`),
+ * DIAMATI lebih dulu pada kode baseline lama,
  * baru kemudian direkam sebagai ekspektasi. Tidak ada satu pun angka di sini
  * yang ditulis dari asumsi; termasuk nilai yang terlihat "aneh" (mis. subtotal
  * TURUN saat menyeberangi ambang tier) — direkam apa adanya karena inilah
