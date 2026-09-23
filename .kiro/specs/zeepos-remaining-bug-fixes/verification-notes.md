@@ -602,7 +602,7 @@ Dibuat lewat Auth Admin API `POST /auth/v1/admin/users` dengan
 | admin | `admin@zeepos.com` | `60afd434-fae8-4766-bf95-6f65674e4793` |
 | kasir | `kasir1@zeepos.com` | `70346623-ff6a-4a35-8236-044dd734b78e` |
 
-Tenant: **`Toko Plastik Ratih UAT`**, slug `ratih-uat`, id
+Tenant: **`ZeePOS UAT`**, slug `zeepos-uat`, id
 `6ea24cf8-efb3-4472-9558-46088ee11ea8`. Kedua profil ditautkan ke tenant itu
 dengan `profiles.role` = `admin` dan `kasir`.
 
@@ -635,7 +635,7 @@ dikonfirmasi pemilik**, karena org `qrydxgflbhxpxulwsnuo` hanya memuat satu proj
 - **Penguji:** coding agent (Kiro) atas nama pemilik spec, mesin pengembang macOS
 - **Target:** project Supabase `ZeePOS`, ref `dfgqioglsirftfyjyswd`, skema pada
   migrasi **066** (067/068/069 **belum** ada) — kondisi yang ditinggalkan task 4.
-- **Tenant uji:** `6ea24cf8-efb3-4472-9558-46088ee11ea8` (`Toko Plastik Ratih UAT`)
+- **Tenant uji:** `6ea24cf8-efb3-4472-9558-46088ee11ea8` (`ZeePOS UAT`)
 - **Identitas impersonasi:** kasir `70346623-ff6a-4a35-8236-044dd734b78e`,
   admin `60afd434-fae8-4766-bf95-6f65674e4793`
 - **Data uji:** produk id **1** `Gelas Plastik 200ml` (`harga_beli` 900,

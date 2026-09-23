@@ -11,6 +11,9 @@ node_modules
 dist
 coverage
 dist-ssr
+.env
+.env.*
+!.env.example
 *.local
 *.zip
 supabase/.branches/

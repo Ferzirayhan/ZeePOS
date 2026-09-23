@@ -574,7 +574,7 @@ describe('preservation 3.13 — struk browser (ReceiptPrint)', () => {
       createElement(ReceiptPrint, {
         transaction,
         items,
-        settings: { nama_toko: 'Toko Plastik Ratih', header_struk: 'Struk Pembelian', footer_struk: 'Terima kasih' },
+        settings: { nama_toko: 'ZeePOS Store', header_struk: 'Struk Pembelian', footer_struk: 'Terima kasih' },
         cashier,
       }),
     )
@@ -762,7 +762,7 @@ describe('preservation 3.12 — sesi, cache offline, logout, StrictMode', () => 
   const TENANT = 'tenant-aaa'
   const SESSION = { user: { id: 'user-1' }, access_token: 'tok' } as unknown as Session
   const PROFILE = { id: 'user-1', nama: 'Sari', role: 'kasir', tenant_id: TENANT }
-  const TENANT_ROW = { id: TENANT, nama: 'Toko Ratih' }
+  const TENANT_ROW = { id: TENANT, nama: 'ZeePOS Store' }
 
   beforeEach(() => {
     Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: new IDBFactory() })

@@ -77,7 +77,7 @@ vi.mock('../api/products', () => ({
 }))
 
 vi.mock('../api/settings', () => ({
-  getSettings: vi.fn(async () => ({ nama_toko: 'Toko Plastik Ratih' })),
+  getSettings: vi.fn(async () => ({ nama_toko: 'ZeePOS Store' })),
 }))
 
 vi.mock('../api/units', () => ({

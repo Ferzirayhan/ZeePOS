@@ -16,7 +16,7 @@ describe('extractStoragePath (Task 19.3)', () => {
 
   it('mengekstrak path dari full Supabase public URL', () => {
     const url =
-      'https://dfgqioglsirftfyjyswd.supabase.co/storage/v1/object/public/products/6ea24cf8-efb3-4472-9558-46088ee11ea8/photo.jpg'
+      'https://your-project.supabase.co/storage/v1/object/public/products/6ea24cf8-efb3-4472-9558-46088ee11ea8/photo.jpg'
     expect(extractStoragePath(url)).toBe(
       '6ea24cf8-efb3-4472-9558-46088ee11ea8/photo.jpg',
     )
@@ -24,7 +24,7 @@ describe('extractStoragePath (Task 19.3)', () => {
 
   it('mengekstrak path dari full Supabase public URL dengan query params (cache buster)', () => {
     const url =
-      'https://dfgqioglsirftfyjyswd.supabase.co/storage/v1/object/public/products/6ea24cf8-efb3-4472-9558-46088ee11ea8/photo.jpg?v=12345'
+      'https://your-project.supabase.co/storage/v1/object/public/products/6ea24cf8-efb3-4472-9558-46088ee11ea8/photo.jpg?v=12345'
     expect(extractStoragePath(url)).toBe(
       '6ea24cf8-efb3-4472-9558-46088ee11ea8/photo.jpg',
     )
@@ -32,7 +32,7 @@ describe('extractStoragePath (Task 19.3)', () => {
 
   it('mengekstrak path dari full Supabase signed URL', () => {
     const url =
-      'https://dfgqioglsirftfyjyswd.supabase.co/storage/v1/object/sign/products/6ea24cf8-efb3-4472-9558-46088ee11ea8/photo.jpg?token=abc'
+      'https://your-project.supabase.co/storage/v1/object/sign/products/6ea24cf8-efb3-4472-9558-46088ee11ea8/photo.jpg?token=abc'
     expect(extractStoragePath(url)).toBe(
       '6ea24cf8-efb3-4472-9558-46088ee11ea8/photo.jpg',
     )
